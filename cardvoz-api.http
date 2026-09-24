@@ -1,0 +1,47 @@
+@cardvoz_api_HostAddress = http://localhost:5050
+
+### Listar todos os baralhos
+GET {{cardvoz_api_HostAddress}}/api/decks
+Accept: application/json
+
+### Obter categorias de baralhos
+GET {{cardvoz_api_HostAddress}}/api/decks/categories
+Accept: application/json
+
+### Obter baralho por slug com seus cartões
+GET {{cardvoz_api_HostAddress}}/api/decks/biologia-celular
+Accept: application/json
+
+### Listar cartões de um baralho
+GET {{cardvoz_api_HostAddress}}/api/cards?deckId=1
+Accept: application/json
+
+### Iniciar sessão de estudos
+POST {{cardvoz_api_HostAddress}}/api/study-sessions/start
+Content-Type: application/json
+
+{
+  "deckSlug": "biologia-celular"
+}
+
+### Registrar resposta na sessão
+POST {{cardvoz_api_HostAddress}}/api/study-sessions/1/review
+Content-Type: application/json
+
+{
+  "cardId": 1,
+  "wasCorrect": true,
+  "voiceUsed": true
+}
+
+### Finalizar sessão de estudos
+POST {{cardvoz_api_HostAddress}}/api/study-sessions/1/finish
+Accept: application/json
+
+### Obter detalhes da sessão
+GET {{cardvoz_api_HostAddress}}/api/study-sessions/1
+Accept: application/json
+
+### Obter histórico de sessões
+GET {{cardvoz_api_HostAddress}}/api/study-sessions/history
+Accept: application/json
