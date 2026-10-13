@@ -1,11 +1,17 @@
+using cardvoz_api.Auth;
 using cardvoz_api.DTOs.Cards;
 using cardvoz_api.DTOs.Decks;
 using cardvoz_api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace cardvoz_api.Controllers;
 
+/// <summary>
+/// Baralhos da pessoa logada. Baralhos de outras pessoas respondem 404.
+/// </summary>
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 [Produces("application/json")]
 public class DecksController : ControllerBase
@@ -25,7 +31,7 @@ public class DecksController : ControllerBase
     }
 
     /// <summary>
-    /// Lista todos os baralhos cadastrados, com opção de filtro por categoria e busca textual.
+    /// Lista os baralhos da pessoa logada, com opção de filtro por categoria e busca textual.
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<DeckResponseDto>), StatusCodes.Status200OK)]
@@ -33,30 +39,30 @@ public class DecksController : ControllerBase
         [FromQuery] string? category,
         [FromQuery] string? search)
     {
-        var decks = await _deckService.GetAllAsync(category, search);
+        var decks = await _deckService.GetAllAsync(User.GetUserId(), category, search);
         return Ok(decks);
     }
 
     /// <summary>
-    /// Retorna todas as categorias únicas de baralhos existentes.
+    /// Retorna as categorias usadas nos baralhos da pessoa logada.
     /// </summary>
     [HttpGet("categories")]
     [ProducesResponseType(typeof(IEnumerable<string>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<string>>> GetCategories()
     {
-        var categories = await _deckService.GetCategoriesAsync();
+        var categories = await _deckService.GetCategoriesAsync(User.GetUserId());
         return Ok(categories);
     }
 
     /// <summary>
-    /// Obtém detalhes completos de um baralho e seus respectivos cartões através do ID numérico ou slug.
+    /// Obtém detalhes completos de um baralho e seus cartões pelo ID (UUID) ou slug.
     /// </summary>
     [HttpGet("{idOrSlug}")]
     [ProducesResponseType(typeof(DeckDetailResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DeckDetailResponseDto>> GetByIdOrSlug(string idOrSlug)
     {
-        var deck = await _deckService.GetByIdOrSlugAsync(idOrSlug);
+        var deck = await _deckService.GetByIdOrSlugAsync(User.GetUserId(), idOrSlug);
         if (deck == null)
         {
             return NotFound(new { message = $"Baralho '{idOrSlug}' não foi encontrado." });
@@ -68,11 +74,17 @@ public class DecksController : ControllerBase
     /// <summary>
     /// Retorna os cartões pertencentes a um baralho específico.
     /// </summary>
-    [HttpGet("{deckId:int}/cards")]
+    [HttpGet("{deckId:guid}/cards")]
     [ProducesResponseType(typeof(IEnumerable<CardResponseDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<CardResponseDto>>> GetCardsByDeck(int deckId)
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IEnumerable<CardResponseDto>>> GetCardsByDeck(Guid deckId)
     {
-        var cards = await _cardService.GetByDeckIdAsync(deckId);
+        var cards = await _cardService.GetByDeckIdAsync(User.GetUserId(), deckId);
+        if (cards == null)
+        {
+            return NotFound(new { message = $"Baralho com ID {deckId} não foi encontrado." });
+        }
+
         return Ok(cards);
     }
 
@@ -89,25 +101,25 @@ public class DecksController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var deck = await _deckService.CreateAsync(dto);
+        var deck = await _deckService.CreateAsync(User.GetUserId(), dto);
         return CreatedAtAction(nameof(GetByIdOrSlug), new { idOrSlug = deck.Slug }, deck);
     }
 
     /// <summary>
     /// Atualiza as informações de um baralho existente.
     /// </summary>
-    [HttpPut("{id:int}")]
+    [HttpPut("{id:guid}")]
     [ProducesResponseType(typeof(DeckResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<DeckResponseDto>> Update(int id, [FromBody] UpdateDeckDto dto)
+    public async Task<ActionResult<DeckResponseDto>> Update(Guid id, [FromBody] UpdateDeckDto dto)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        var updated = await _deckService.UpdateAsync(id, dto);
+        var updated = await _deckService.UpdateAsync(User.GetUserId(), id, dto);
         if (updated == null)
         {
             return NotFound(new { message = $"Baralho com ID {id} não foi encontrado." });
@@ -119,12 +131,12 @@ public class DecksController : ControllerBase
     /// <summary>
     /// Remove um baralho e todos os seus cartões associados.
     /// </summary>
-    [HttpDelete("{id:int}")]
+    [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Delete(int id)
+    public async Task<IActionResult> Delete(Guid id)
     {
-        var deleted = await _deckService.DeleteAsync(id);
+        var deleted = await _deckService.DeleteAsync(User.GetUserId(), id);
         if (!deleted)
         {
             return NotFound(new { message = $"Baralho com ID {id} não foi encontrado." });

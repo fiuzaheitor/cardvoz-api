@@ -7,6 +7,8 @@ namespace cardvoz_api.Services;
 
 public class StudyService : IStudyService
 {
+    private const int MaxHistoryLimit = 100;
+
     private readonly CardVozDbContext _context;
     private readonly ILogger<StudyService> _logger;
 
@@ -16,21 +18,19 @@ public class StudyService : IStudyService
         _logger = logger;
     }
 
-    public async Task<StudySessionResponseDto> StartSessionAsync(StartSessionDto dto)
+    public async Task<StudySessionResponseDto> StartSessionAsync(Guid userId, StartSessionDto dto)
     {
         Deck? deck = null;
+        var ownDecks = _context.Decks.Include(d => d.Cards).Where(d => d.UserId == userId);
 
         if (dto.DeckId.HasValue)
         {
-            deck = await _context.Decks
-                .Include(d => d.Cards)
-                .FirstOrDefaultAsync(d => d.Id == dto.DeckId.Value);
+            deck = await ownDecks.FirstOrDefaultAsync(d => d.Id == dto.DeckId.Value);
         }
         else if (!string.IsNullOrWhiteSpace(dto.DeckSlug))
         {
-            deck = await _context.Decks
-                .Include(d => d.Cards)
-                .FirstOrDefaultAsync(d => d.Slug == dto.DeckSlug.Trim().ToLower());
+            var slug = dto.DeckSlug.Trim().ToLower();
+            deck = await ownDecks.FirstOrDefaultAsync(d => d.Slug == slug);
         }
 
         if (deck == null)
@@ -67,11 +67,17 @@ public class StudyService : IStudyService
         };
     }
 
-    public async Task<StudyReviewResponseDto?> RecordReviewAsync(int sessionId, RecordReviewDto dto)
+    public async Task<StudyReviewResponseDto?> RecordReviewAsync(Guid userId, Guid sessionId, RecordReviewDto dto)
     {
-        var session = await _context.StudySessions.FirstOrDefaultAsync(s => s.Id == sessionId);
+        var session = await _context.StudySessions
+            .FirstOrDefaultAsync(s => s.Id == sessionId && s.Deck!.UserId == userId);
         if (session == null)
             return null;
+
+        if (session.CompletedAt.HasValue)
+        {
+            throw new ArgumentException("Esta sessão de estudo já foi finalizada.");
+        }
 
         var card = await _context.Cards.FirstOrDefaultAsync(c => c.Id == dto.CardId && c.DeckId == session.DeckId);
         if (card == null)
@@ -108,12 +114,12 @@ public class StudyService : IStudyService
         };
     }
 
-    public async Task<StudySessionResponseDto?> FinishSessionAsync(int sessionId)
+    public async Task<StudySessionResponseDto?> FinishSessionAsync(Guid userId, Guid sessionId)
     {
         var session = await _context.StudySessions
             .Include(s => s.Deck)
             .Include(s => s.Reviews)
-            .FirstOrDefaultAsync(s => s.Id == sessionId);
+            .FirstOrDefaultAsync(s => s.Id == sessionId && s.Deck!.UserId == userId);
 
         if (session == null)
             return null;
@@ -128,13 +134,13 @@ public class StudyService : IStudyService
         return MapToSessionDto(session);
     }
 
-    public async Task<StudySessionResponseDto?> GetSessionByIdAsync(int sessionId)
+    public async Task<StudySessionResponseDto?> GetSessionByIdAsync(Guid userId, Guid sessionId)
     {
         var session = await _context.StudySessions
             .AsNoTracking()
             .Include(s => s.Deck)
             .Include(s => s.Reviews)
-            .FirstOrDefaultAsync(s => s.Id == sessionId);
+            .FirstOrDefaultAsync(s => s.Id == sessionId && s.Deck!.UserId == userId);
 
         if (session == null)
             return null;
@@ -142,13 +148,16 @@ public class StudyService : IStudyService
         return MapToSessionDto(session);
     }
 
-    public async Task<IEnumerable<StudySessionResponseDto>> GetHistoryAsync(int? deckId = null, int limit = 20)
+    public async Task<IEnumerable<StudySessionResponseDto>> GetHistoryAsync(Guid userId, Guid? deckId = null, int limit = 20)
     {
+        // Limite máximo para ninguém pedir o histórico inteiro de uma vez
+        limit = Math.Clamp(limit, 1, MaxHistoryLimit);
+
         var query = _context.StudySessions
             .AsNoTracking()
             .Include(s => s.Deck)
             .Include(s => s.Reviews)
-            .AsQueryable();
+            .Where(s => s.Deck!.UserId == userId);
 
         if (deckId.HasValue)
         {

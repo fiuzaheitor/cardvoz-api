@@ -2,8 +2,8 @@ namespace cardvoz_api.DTOs.StudySessions;
 
 public class StudySessionResponseDto
 {
-    public int Id { get; set; }
-    public int DeckId { get; set; }
+    public Guid Id { get; set; }
+    public Guid DeckId { get; set; }
     public string? DeckTitle { get; set; }
     public string? DeckSlug { get; set; }
     public DateTime StartedAt { get; set; }

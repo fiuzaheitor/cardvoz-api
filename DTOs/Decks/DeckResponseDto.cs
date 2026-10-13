@@ -2,7 +2,7 @@ namespace cardvoz_api.DTOs.Decks;
 
 public class DeckResponseDto
 {
-    public int Id { get; set; }
+    public Guid Id { get; set; }
     public string Slug { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;

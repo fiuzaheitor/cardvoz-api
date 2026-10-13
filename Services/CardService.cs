@@ -16,13 +16,17 @@ public class CardService : ICardService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<CardResponseDto>> GetByDeckIdAsync(int deckId)
+    public async Task<IEnumerable<CardResponseDto>?> GetByDeckIdAsync(Guid userId, Guid deckId)
     {
+        var ownsDeck = await _context.Decks.AnyAsync(d => d.Id == deckId && d.UserId == userId);
+        if (!ownsDeck)
+            return null;
+
         return await _context.Cards
             .AsNoTracking()
             .Where(c => c.DeckId == deckId)
             .OrderBy(c => c.DisplayOrder)
-            .ThenBy(c => c.Id)
+            .ThenBy(c => c.CreatedAt)
             .Select(c => new CardResponseDto
             {
                 Id = c.Id,
@@ -36,9 +40,11 @@ public class CardService : ICardService
             .ToListAsync();
     }
 
-    public async Task<CardResponseDto?> GetByIdAsync(int id)
+    public async Task<CardResponseDto?> GetByIdAsync(Guid userId, Guid id)
     {
-        var card = await _context.Cards.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id);
+        var card = await _context.Cards
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == id && c.Deck!.UserId == userId);
         if (card == null)
             return null;
 
@@ -54,9 +60,9 @@ public class CardService : ICardService
         };
     }
 
-    public async Task<CardResponseDto> CreateAsync(CreateCardDto dto)
+    public async Task<CardResponseDto> CreateAsync(Guid userId, CreateCardDto dto)
     {
-        var deck = await _context.Decks.FindAsync(dto.DeckId);
+        var deck = await _context.Decks.FirstOrDefaultAsync(d => d.Id == dto.DeckId && d.UserId == userId);
         if (deck == null)
         {
             throw new KeyNotFoundException($"Baralho com ID {dto.DeckId} não foi encontrado.");
@@ -101,9 +107,11 @@ public class CardService : ICardService
         };
     }
 
-    public async Task<CardResponseDto?> UpdateAsync(int id, UpdateCardDto dto)
+    public async Task<CardResponseDto?> UpdateAsync(Guid userId, Guid id, UpdateCardDto dto)
     {
-        var card = await _context.Cards.Include(c => c.Deck).FirstOrDefaultAsync(c => c.Id == id);
+        var card = await _context.Cards
+            .Include(c => c.Deck)
+            .FirstOrDefaultAsync(c => c.Id == id && c.Deck!.UserId == userId);
         if (card == null)
             return null;
 
@@ -138,9 +146,11 @@ public class CardService : ICardService
         };
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<bool> DeleteAsync(Guid userId, Guid id)
     {
-        var card = await _context.Cards.Include(c => c.Deck).FirstOrDefaultAsync(c => c.Id == id);
+        var card = await _context.Cards
+            .Include(c => c.Deck)
+            .FirstOrDefaultAsync(c => c.Id == id && c.Deck!.UserId == userId);
         if (card == null)
             return false;
 

@@ -10,12 +10,13 @@ O projeto adota uma arquitetura em camadas limpas, com separação de responsabi
 
 ```
 cardvoz-api/
+├── Auth/              # Configuração do JWT, limite de tentativas e leitura do usuário logado
 ├── Controllers/       # Controladores REST com anotações OpenAPI/Swagger
 ├── DTOs/              # Objetos de transferência de dados (Request / Response)
-├── Models/            # Entidades do domínio (Deck, Card, StudySession, StudyReview)
-├── Data/              # EF Core DbContext, mapeamento fluente e seed inicial
-├── Services/          # Interfaces e regras de negócio
-├── Program.cs         # Inicialização, injeção de dependência, CORS e Swagger
+├── Models/            # Entidades (User, RefreshToken, Deck, Card, StudySession, StudyReview)
+├── Data/              # EF Core DbContext, mapeamento fluente e conexão com o Supabase
+├── Services/          # Interfaces e regras de negócio (inclui login e tokens)
+├── Program.cs         # Inicialização, autenticação, autorização, CORS e Swagger
 └── appsettings.json   # Configurações da aplicação
 ```
 
@@ -24,7 +25,10 @@ cardvoz-api/
 ## ⚡ Recursos e Diferenciais
 
 - **Acessibilidade por Voz**: Rastreamento de respostas acionadas por comandos de voz (`voiceUsed`) e campo `voiceNotes` para orientações fonéticas em cada ficha.
-- **Banco de Dados PostgreSQL (Supabase)**: O esquema (tabelas, índices e RLS) e os 4 baralhos de exemplo ficam no repositório [`cardvoz-db`](../cardvoz-db), como migrations do Supabase. A API não cria tabelas: ela só se conecta e avisa no log se as migrations não tiverem sido aplicadas.
+- **Contas e login**: cadastro e login com e-mail e senha; senha guardada só como hash (PBKDF2-SHA512, 100 mil iterações, com salt); sessão com token de acesso JWT de 15 minutos e token de renovação de 30 dias.
+- **Baralhos privados**: cada pessoa só vê, estuda, edita e exclui os próprios baralhos, fichas e sessões. Recursos de outra pessoa respondem 404.
+- **IDs aleatórios**: todos os registros usam UUID v4, impossível de adivinhar ou varrer em sequência.
+- **Banco de Dados PostgreSQL (Supabase)**: O esquema (tabelas, índices e RLS) fica no repositório [`cardvoz-db`](../cardvoz-db), como migrations do Supabase. A API não cria tabelas: ela só se conecta e avisa no log se as migrations não tiverem sido aplicadas.
 - **Documentação Interativa**: Swagger UI acessível em `/swagger`.
 
 ---
@@ -37,7 +41,7 @@ cardvoz-api/
 
 ### Configuração do banco
 1. Aplique as migrations do repositório [`cardvoz-db`](../cardvoz-db) no seu projeto do Supabase (veja o README dele).
-2. Copie `.env.example` para `.env` e preencha `ConnectionStrings__DefaultConnection` com a conexão do Supabase: no painel, **Connect → Session pooler** (porta 5432). Use o *pooler*, não a conexão direta: a direta só funciona por IPv6, que hospedagens como o Render não suportam. Prefira uma senha só com letras e números, pois caracteres como `@`, `#` e `/` quebram a URI.
+2. Copie `.env.example` para `.env`, gere a `JWT_SIGNING_KEY` (`openssl rand -base64 48`) e preencha `ConnectionStrings__DefaultConnection` com a conexão do Supabase: no painel, **Connect → Session pooler** (porta 5432). Use o *pooler*, não a conexão direta: a direta só funciona por IPv6, que hospedagens como o Render não suportam. A senha pode ter qualquer caractere; troque `[YOUR-PASSWORD]` inteiro, inclusive os colchetes.
 
 ### Passos
 ```bash
@@ -57,15 +61,63 @@ A API iniciará por padrão em:
 
 ---
 
+## 🔐 Autenticação
+
+Todas as rotas exigem login, exceto as de `/api/auth` (menos `/me`). Envie o token de acesso no cabeçalho:
+
+```
+Authorization: Bearer <accessToken>
+```
+
+### Contas e sessão (`/api/auth`)
+- `POST /api/auth/register` - Cria a conta (`name`, `email`, `password` com 8 a 128 caracteres) e já devolve os tokens. E-mail repetido: `409`.
+- `POST /api/auth/login` - Entra com `email` e `password`. Erro: `401` com a mesma mensagem para e-mail inexistente e senha errada.
+- `POST /api/auth/refresh` - Troca o `refreshToken` por um novo par de tokens. O token usado deixa de valer.
+- `POST /api/auth/logout` - Revoga o `refreshToken` (sempre `204`).
+- `GET /api/auth/me` - Dados da pessoa logada.
+
+Login, cadastro, renovação e logout devolvem:
+
+```json
+{
+  "accessToken": "eyJ...", "accessTokenExpiresAt": "2026-10-13T12:15:00Z",
+  "refreshToken": "q1w2...", "refreshTokenExpiresAt": "2026-11-12T12:00:00Z",
+  "user": { "id": "3f6c…", "name": "Ana", "email": "ana@exemplo.com", "createdAt": "…" }
+}
+```
+
+### Como o frontend deve usar
+1. Guarde o `accessToken` **em memória** (variável/estado) e envie em todas as chamadas.
+2. Guarde o `refreshToken` de forma persistente para manter a pessoa logada (ex.: `localStorage`). Ele só deve ir para `/api/auth/refresh` e `/api/auth/logout`.
+3. Ao receber `401` em qualquer rota, chame `/api/auth/refresh` **uma única vez** e repita a requisição. Se o refresh também der `401`, mande para a tela de login.
+4. Não faça duas renovações ao mesmo tempo (ex.: duas abas): reaproveite a mesma promessa. Se um token já trocado for reapresentado depois de 30 segundos, a API entende como roubo e encerra **todas** as sessões da pessoa.
+
+### Proteções
+- **Bloqueio de conta**: 5 senhas erradas seguidas bloqueiam o login por 15 minutos (`429` com `Retry-After`).
+- **Limite por IP**: até 10 chamadas por minuto em cadastro, login, renovação e logout (`429`).
+- **Tokens**: assinatura HS256 com algoritmo fixo; emissor, público e validade conferidos. Os tokens de renovação são aleatórios (256 bits) e só o hash SHA-256 fica no banco.
+
+### Variáveis de ambiente
+| Variável | Obrigatória | Descrição |
+|---|---|---|
+| `ConnectionStrings__DefaultConnection` | Sim | URI do Session pooler do Supabase |
+| `JWT_SIGNING_KEY` | Sim | Chave de assinatura dos tokens, mínimo 32 caracteres (`openssl rand -base64 48`). Sem ela a API não sobe. |
+| `CORS_ALLOWED_ORIGINS` | Em produção | Endereço do site, sem barra no final |
+| `JWT_ISSUER`, `JWT_AUDIENCE` | Não | Padrão: `cardvoz-api` e `cardvoz` |
+
+---
+
 ## 📋 Endpoints Principais
 
+Todos os IDs são UUID (texto, ex.: `"3f6c2b1e-…"`).
+
 ### Baralhos (`/api/decks`)
-- `GET /api/decks` - Lista todos os baralhos (suporta `?category=` e `?search=`)
-- `GET /api/decks/categories` - Lista categorias cadastradas
-- `GET /api/decks/{idOrSlug}` - Obtém baralho detalhado por ID ou Slug semântico
+- `GET /api/decks` - Lista os baralhos da pessoa logada (suporta `?category=` e `?search=`)
+- `GET /api/decks/categories` - Lista as categorias dos baralhos da pessoa logada
+- `GET /api/decks/{idOrSlug}` - Obtém baralho detalhado por ID ou slug
 - `POST /api/decks` - Cria um novo baralho
-- `PUT /api/decks/{id}` - Atualiza baralho existente
-- `DELETE /api/decks/{id}` - Remove baralho e fichas associadas
+- `PUT /api/decks/{id}` - Edita título, categoria, descrição ou slug (só os campos enviados)
+- `DELETE /api/decks/{id}` - Exclui o baralho com suas fichas e sessões
 
 ### Cartões (`/api/cards`)
 - `GET /api/decks/{deckId}/cards` - Lista cartões de um baralho
@@ -79,7 +131,7 @@ A API iniciará por padrão em:
 - `POST /api/study-sessions/{id}/review` - Registra acerto/erro e flag `voiceUsed`
 - `POST /api/study-sessions/{id}/finish` - Conclui a sessão e consolida pontuação
 - `GET /api/study-sessions/{id}` - Consulta detalhes de uma sessão
-- `GET /api/study-sessions/history` - Histórico de sessões finalizadas
+- `GET /api/study-sessions/history` - Histórico de sessões da pessoa logada (`?deckId=`, `?limit=` até 100)
 
 ---
 

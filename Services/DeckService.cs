@@ -20,9 +20,9 @@ public class DeckService : IDeckService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<DeckResponseDto>> GetAllAsync(string? category = null, string? search = null)
+    public async Task<IEnumerable<DeckResponseDto>> GetAllAsync(Guid userId, string? category = null, string? search = null)
     {
-        var query = _context.Decks.AsNoTracking();
+        var query = _context.Decks.AsNoTracking().Where(d => d.UserId == userId);
 
         if (!string.IsNullOrWhiteSpace(category))
         {
@@ -55,25 +55,25 @@ public class DeckService : IDeckService
         return decks;
     }
 
-    public async Task<DeckDetailResponseDto?> GetByIdOrSlugAsync(string idOrSlug)
+    public async Task<DeckDetailResponseDto?> GetByIdOrSlugAsync(Guid userId, string idOrSlug)
     {
         if (string.IsNullOrWhiteSpace(idOrSlug))
             return null;
 
-        var isNumeric = int.TryParse(idOrSlug, out var numericId);
-
         var query = _context.Decks
             .AsNoTracking()
-            .Include(d => d.Cards.OrderBy(c => c.DisplayOrder).ThenBy(c => c.Id));
+            .Where(d => d.UserId == userId)
+            .Include(d => d.Cards.OrderBy(c => c.DisplayOrder).ThenBy(c => c.CreatedAt));
 
         Deck? deck;
-        if (isNumeric)
+        if (Guid.TryParse(idOrSlug, out var id))
         {
-            deck = await query.FirstOrDefaultAsync(d => d.Id == numericId);
+            deck = await query.FirstOrDefaultAsync(d => d.Id == id);
         }
         else
         {
-            deck = await query.FirstOrDefaultAsync(d => d.Slug == idOrSlug.Trim().ToLower());
+            var slug = idOrSlug.Trim().ToLower();
+            deck = await query.FirstOrDefaultAsync(d => d.Slug == slug);
         }
 
         if (deck == null)
@@ -102,17 +102,18 @@ public class DeckService : IDeckService
         };
     }
 
-    public async Task<DeckResponseDto> CreateAsync(CreateDeckDto dto)
+    public async Task<DeckResponseDto> CreateAsync(Guid userId, CreateDeckDto dto)
     {
         var slug = !string.IsNullOrWhiteSpace(dto.Slug)
             ? GenerateSlug(dto.Slug)
             : GenerateSlug(dto.Title);
 
-        // Garante unicidade do slug
-        slug = await EnsureUniqueSlugAsync(slug);
+        // Garante unicidade do slug entre os baralhos da pessoa
+        slug = await EnsureUniqueSlugAsync(userId, slug);
 
         var deck = new Deck
         {
+            UserId = userId,
             Title = dto.Title.Trim(),
             Slug = slug,
             Category = dto.Category.Trim(),
@@ -138,9 +139,11 @@ public class DeckService : IDeckService
         };
     }
 
-    public async Task<DeckResponseDto?> UpdateAsync(int id, UpdateDeckDto dto)
+    public async Task<DeckResponseDto?> UpdateAsync(Guid userId, Guid id, UpdateDeckDto dto)
     {
-        var deck = await _context.Decks.Include(d => d.Cards).FirstOrDefaultAsync(d => d.Id == id);
+        var deck = await _context.Decks
+            .Include(d => d.Cards)
+            .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId);
         if (deck == null)
             return null;
 
@@ -158,7 +161,7 @@ public class DeckService : IDeckService
             var newSlug = GenerateSlug(dto.Slug);
             if (newSlug != deck.Slug)
             {
-                deck.Slug = await EnsureUniqueSlugAsync(newSlug, deck.Id);
+                deck.Slug = await EnsureUniqueSlugAsync(userId, newSlug, deck.Id);
             }
         }
 
@@ -181,9 +184,9 @@ public class DeckService : IDeckService
         };
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<bool> DeleteAsync(Guid userId, Guid id)
     {
-        var deck = await _context.Decks.FindAsync(id);
+        var deck = await _context.Decks.FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId);
         if (deck == null)
             return false;
 
@@ -194,10 +197,11 @@ public class DeckService : IDeckService
         return true;
     }
 
-    public async Task<IEnumerable<string>> GetCategoriesAsync()
+    public async Task<IEnumerable<string>> GetCategoriesAsync(Guid userId)
     {
         return await _context.Decks
             .AsNoTracking()
+            .Where(d => d.UserId == userId)
             .Select(d => d.Category)
             .Distinct()
             .OrderBy(c => c)
@@ -224,12 +228,13 @@ public class DeckService : IDeckService
         return string.IsNullOrWhiteSpace(clean) ? "deck" : clean;
     }
 
-    private async Task<string> EnsureUniqueSlugAsync(string baseSlug, int? excludeId = null)
+    private async Task<string> EnsureUniqueSlugAsync(Guid userId, string baseSlug, Guid? excludeId = null)
     {
         var slug = baseSlug;
         var counter = 1;
 
-        while (await _context.Decks.AnyAsync(d => d.Slug == slug && (!excludeId.HasValue || d.Id != excludeId.Value)))
+        while (await _context.Decks.AnyAsync(d =>
+                   d.UserId == userId && d.Slug == slug && (!excludeId.HasValue || d.Id != excludeId.Value)))
         {
             slug = $"{baseSlug}-{counter++}";
         }

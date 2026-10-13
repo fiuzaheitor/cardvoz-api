@@ -7,11 +7,11 @@ namespace cardvoz_api.Models;
 /// </summary>
 public class StudyReview
 {
-    public int Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
-    public int StudySessionId { get; set; }
+    public Guid StudySessionId { get; set; }
 
-    public int CardId { get; set; }
+    public Guid CardId { get; set; }
 
     public bool WasCorrect { get; set; }
 

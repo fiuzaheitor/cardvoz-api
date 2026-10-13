@@ -8,9 +8,9 @@ namespace cardvoz_api.Models;
 /// </summary>
 public class Card
 {
-    public int Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
-    public int DeckId { get; set; }
+    public Guid DeckId { get; set; }
 
     [Required]
     public string Question { get; set; } = string.Empty;

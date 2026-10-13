@@ -9,6 +9,8 @@ public class CardVozDbContext : DbContext
     {
     }
 
+    public DbSet<User> Users => Set<User>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Deck> Decks => Set<Deck>();
     public DbSet<Card> Cards => Set<Card>();
     public DbSet<StudySession> StudySessions => Set<StudySession>();
@@ -18,11 +20,47 @@ public class CardVozDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        // IDs aleatórios (UUID v4) gerados no C# com Guid.NewGuid(). Sem isto, o
+        // Npgsql geraria UUID v7, que embute a data de criação no identificador.
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            modelBuilder.Entity(entityType.ClrType).Property("Id").ValueGeneratedNever();
+        }
+
+        // User Configuration
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(u => u.Id);
+            entity.HasIndex(u => u.Email).IsUnique();
+            entity.Property(u => u.Name).IsRequired().HasMaxLength(100);
+            entity.Property(u => u.Email).IsRequired().HasMaxLength(254);
+            entity.Property(u => u.PasswordHash).IsRequired();
+
+            entity.HasMany(u => u.Decks)
+                .WithOne(d => d.User)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // RefreshToken Configuration
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.HasIndex(t => t.TokenHash).IsUnique();
+            entity.Property(t => t.TokenHash).IsRequired().HasMaxLength(64);
+
+            entity.HasOne(t => t.User)
+                .WithMany(u => u.RefreshTokens)
+                .HasForeignKey(t => t.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         // Deck Configuration
         modelBuilder.Entity<Deck>(entity =>
         {
             entity.HasKey(d => d.Id);
-            entity.HasIndex(d => d.Slug).IsUnique();
+            // O slug só precisa ser único entre os baralhos da mesma pessoa
+            entity.HasIndex(d => new { d.UserId, d.Slug }).IsUnique();
             entity.Property(d => d.Slug).IsRequired().HasMaxLength(150);
             entity.Property(d => d.Title).IsRequired().HasMaxLength(200);
             entity.Property(d => d.Category).IsRequired().HasMaxLength(100);

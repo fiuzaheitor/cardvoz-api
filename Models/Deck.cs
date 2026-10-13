@@ -8,7 +8,15 @@ namespace cardvoz_api.Models;
 /// </summary>
 public class Deck
 {
-    public int Id { get; set; }
+    /// <summary>
+    /// Identificador aleatório (UUID v4), impossível de adivinhar a partir de outros IDs.
+    /// </summary>
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    /// <summary>
+    /// Dono do baralho. Só ele pode ver, estudar, editar e excluir.
+    /// </summary>
+    public Guid UserId { get; set; }
 
     [Required]
     [MaxLength(150)]
@@ -28,6 +36,9 @@ public class Deck
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? UpdatedAt { get; set; }
+
+    [JsonIgnore]
+    public User? User { get; set; }
 
     [JsonIgnore]
     public ICollection<Card> Cards { get; set; } = new List<Card>();

@@ -1,7 +1,16 @@
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
+using cardvoz_api.Auth;
 using cardvoz_api.Data;
+using cardvoz_api.Models;
 using cardvoz_api.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 // Carrega variáveis do arquivo .env (se existir) para o ambiente ANTES de montar
@@ -40,6 +49,25 @@ builder.Services.AddSwaggerGen(c =>
             Name = "Equipe CardVoz",
             Url = new Uri("https://github.com/gvtenberg/cardvoz")
         }
+    });
+
+    // Botão "Authorize" do Swagger: cole o accessToken retornado pelo login
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Token de acesso retornado por /api/auth/login ou /api/auth/register.",
+    });
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" },
+            },
+            Array.Empty<string>()
+        },
     });
 
     var xmlFilename = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
@@ -90,7 +118,73 @@ if (string.IsNullOrWhiteSpace(connectionString))
 builder.Services.AddDbContext<CardVozDbContext>(options =>
     options.UseNpgsql(PostgresSupport.NormalizeConnectionString(connectionString)));
 
+// === AUTENTICAÇÃO (JWT) ===
+var jwtSettings = JwtSettings.FromConfiguration(builder.Configuration);
+builder.Services.AddSingleton(jwtSettings);
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        // Mantém os nomes originais dos claims ("sub" em vez do formato longo da Microsoft)
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtSettings.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwtSettings.Audience,
+            ValidateLifetime = true,
+            RequireExpirationTime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(jwtSettings.SigningKey),
+            // Só aceita o algoritmo usado na emissão (impede trocar o algoritmo no token)
+            ValidAlgorithms = new[] { SecurityAlgorithms.HmacSha256 },
+            ClockSkew = TimeSpan.FromSeconds(30),
+            NameClaimType = JwtRegisteredClaimNames.Sub,
+        };
+    });
+
+// Seguro por padrão: toda rota exige login, exceto as marcadas com [AllowAnonymous]
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+});
+
+// === LIMITE DE TENTATIVAS (cadastro, login, renovação) ===
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(RateLimitPolicies.Auth, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.Headers.RetryAfter = "60";
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            new { message = "Muitas tentativas. Aguarde um minuto e tente de novo." }, cancellationToken);
+    };
+});
+
+// O Render fica na frente da API como proxy: o IP real do cliente vem no
+// X-Forwarded-For (usado pelo limite de tentativas acima)
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 // === INJEÇÃO DE DEPENDÊNCIA (SERVICES) ===
+builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddSingleton<ITokenService, TokenService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IDeckService, DeckService>();
 builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IStudyService, StudyService>();
@@ -118,6 +212,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // === PIPELINE HTTP ===
+app.UseForwardedHeaders();
 app.UseCors("AllowFrontend");
 
 app.UseSwagger();
@@ -127,8 +222,12 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
+
 // Redireciona a raiz para o Swagger UI
-app.MapGet("/", () => Results.Redirect("/swagger"));
+app.MapGet("/", () => Results.Redirect("/swagger")).AllowAnonymous();
 
 app.MapControllers();
 

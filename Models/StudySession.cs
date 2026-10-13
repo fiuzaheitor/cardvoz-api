@@ -7,9 +7,9 @@ namespace cardvoz_api.Models;
 /// </summary>
 public class StudySession
 {
-    public int Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
-    public int DeckId { get; set; }
+    public Guid DeckId { get; set; }
 
     public DateTime StartedAt { get; set; } = DateTime.UtcNow;
 

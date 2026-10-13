@@ -1,10 +1,16 @@
+using cardvoz_api.Auth;
 using cardvoz_api.DTOs.StudySessions;
 using cardvoz_api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace cardvoz_api.Controllers;
 
+/// <summary>
+/// Sessões de estudo dos baralhos da pessoa logada. Sessões de outras pessoas respondem 404.
+/// </summary>
 [ApiController]
+[Authorize]
 [Route("api/study-sessions")]
 [Produces("application/json")]
 public class StudySessionsController : ControllerBase
@@ -34,7 +40,7 @@ public class StudySessionsController : ControllerBase
 
         try
         {
-            var session = await _studyService.StartSessionAsync(dto);
+            var session = await _studyService.StartSessionAsync(User.GetUserId(), dto);
             return CreatedAtAction(nameof(GetById), new { sessionId = session.Id }, session);
         }
         catch (KeyNotFoundException ex)
@@ -46,11 +52,11 @@ public class StudySessionsController : ControllerBase
     /// <summary>
     /// Registra a resposta dada a um flashcard durante uma sessão ativa (com suporte a indicação de uso de voz).
     /// </summary>
-    [HttpPost("{sessionId:int}/review")]
+    [HttpPost("{sessionId:guid}/review")]
     [ProducesResponseType(typeof(StudyReviewResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<StudyReviewResponseDto>> RecordReview(int sessionId, [FromBody] RecordReviewDto dto)
+    public async Task<ActionResult<StudyReviewResponseDto>> RecordReview(Guid sessionId, [FromBody] RecordReviewDto dto)
     {
         if (!ModelState.IsValid)
         {
@@ -59,7 +65,7 @@ public class StudySessionsController : ControllerBase
 
         try
         {
-            var review = await _studyService.RecordReviewAsync(sessionId, dto);
+            var review = await _studyService.RecordReviewAsync(User.GetUserId(), sessionId, dto);
             if (review == null)
             {
                 return NotFound(new { message = $"Sessão de estudo com ID {sessionId} não foi encontrada." });
@@ -76,12 +82,12 @@ public class StudySessionsController : ControllerBase
     /// <summary>
     /// Finaliza uma sessão de estudos e consolida as métricas finais.
     /// </summary>
-    [HttpPost("{sessionId:int}/finish")]
+    [HttpPost("{sessionId:guid}/finish")]
     [ProducesResponseType(typeof(StudySessionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<StudySessionResponseDto>> Finish(int sessionId)
+    public async Task<ActionResult<StudySessionResponseDto>> Finish(Guid sessionId)
     {
-        var session = await _studyService.FinishSessionAsync(sessionId);
+        var session = await _studyService.FinishSessionAsync(User.GetUserId(), sessionId);
         if (session == null)
         {
             return NotFound(new { message = $"Sessão de estudo com ID {sessionId} não foi encontrada." });
@@ -93,12 +99,12 @@ public class StudySessionsController : ControllerBase
     /// <summary>
     /// Obtém os detalhes e histórico de respostas de uma sessão de estudo específica.
     /// </summary>
-    [HttpGet("{sessionId:int}")]
+    [HttpGet("{sessionId:guid}")]
     [ProducesResponseType(typeof(StudySessionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<StudySessionResponseDto>> GetById(int sessionId)
+    public async Task<ActionResult<StudySessionResponseDto>> GetById(Guid sessionId)
     {
-        var session = await _studyService.GetSessionByIdAsync(sessionId);
+        var session = await _studyService.GetSessionByIdAsync(User.GetUserId(), sessionId);
         if (session == null)
         {
             return NotFound(new { message = $"Sessão de estudo com ID {sessionId} não foi encontrada." });
@@ -108,15 +114,15 @@ public class StudySessionsController : ControllerBase
     }
 
     /// <summary>
-    /// Consulta o histórico geral de sessões de estudo realizadas, opcionalmente filtrando por baralho.
+    /// Consulta o histórico de sessões da pessoa logada (até 100), opcionalmente filtrando por baralho.
     /// </summary>
     [HttpGet("history")]
     [ProducesResponseType(typeof(IEnumerable<StudySessionResponseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<StudySessionResponseDto>>> GetHistory(
-        [FromQuery] int? deckId,
+        [FromQuery] Guid? deckId,
         [FromQuery] int limit = 20)
     {
-        var history = await _studyService.GetHistoryAsync(deckId, limit);
+        var history = await _studyService.GetHistoryAsync(User.GetUserId(), deckId, limit);
         return Ok(history);
     }
 }
