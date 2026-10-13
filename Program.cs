@@ -78,23 +78,17 @@ builder.Services.AddCors(options =>
     });
 });
 
-// === CONFIGURAÇÃO DO BANCO DE DADOS (SQLite por padrão, MySQL suportado) ===
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Data Source=cardvoz.db";
-
-var isMySql = connectionString.Contains("server=", StringComparison.OrdinalIgnoreCase) ||
-              connectionString.Contains("uid=", StringComparison.OrdinalIgnoreCase);
-
-if (isMySql)
+// === CONFIGURAÇÃO DO BANCO DE DADOS (PostgreSQL / Supabase) ===
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
 {
-    builder.Services.AddDbContext<CardVozDbContext>(options =>
-        options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 46))));
+    throw new InvalidOperationException(
+        "Defina a conexão do Supabase na variável ConnectionStrings__DefaultConnection " +
+        "(ex.: postgresql://postgres.<projeto>:<senha>@aws-0-<regiao>.pooler.supabase.com:5432/postgres).");
 }
-else
-{
-    builder.Services.AddDbContext<CardVozDbContext>(options =>
-        options.UseSqlite(connectionString));
-}
+
+builder.Services.AddDbContext<CardVozDbContext>(options =>
+    options.UseNpgsql(PostgresSupport.NormalizeConnectionString(connectionString)));
 
 // === INJEÇÃO DE DEPENDÊNCIA (SERVICES) ===
 builder.Services.AddScoped<IDeckService, DeckService>();
@@ -103,7 +97,8 @@ builder.Services.AddScoped<IStudyService, StudyService>();
 
 var app = builder.Build();
 
-// === INICIALIZAÇÃO E SEED DO BANCO DE DADOS ===
+// === VERIFICAÇÃO DO BANCO DE DADOS ===
+// O esquema e os dados iniciais vêm das migrations do repositório cardvoz-db.
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -111,13 +106,14 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<CardVozDbContext>();
-        context.Database.EnsureCreated();
-        DbInitializer.Initialize(context);
-        logger.LogInformation("Banco de dados verificado e inicializado com sucesso.");
+        var deckCount = context.Decks.Count();
+        logger.LogInformation("Banco de dados conectado ({DeckCount} baralhos).", deckCount);
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Ocorreu um erro durante a criação/inicialização do banco de dados.");
+        logger.LogError(ex,
+            "Não foi possível consultar o banco. Confira a conexão do Supabase e se as " +
+            "migrations do repositório cardvoz-db foram aplicadas (supabase db push).");
     }
 }
 

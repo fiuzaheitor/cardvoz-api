@@ -24,10 +24,7 @@ cardvoz-api/
 ## ⚡ Recursos e Diferenciais
 
 - **Acessibilidade por Voz**: Rastreamento de respostas acionadas por comandos de voz (`voiceUsed`) e campo `voiceNotes` para orientações fonéticas em cada ficha.
-- **Banco de Dados Flexível**:
-  - **SQLite por padrão** (`cardvoz.db`): Funciona instantaneamente sem necessidade de instalação de banco externo.
-  - **MySQL (Pomelo)**: Suporte pronto ativado automaticamente quando uma connection string de MySQL for informada no arquivo `.env` ou `appsettings.json`.
-- **Carga de Dados Automática**: Popula automaticamente no primeiro boot os 4 baralhos iniciais e suas fichas reais de estudo.
+- **Banco de Dados PostgreSQL (Supabase)**: O esquema (tabelas, índices e RLS) e os 4 baralhos de exemplo ficam no repositório [`cardvoz-db`](../cardvoz-db), como migrations do Supabase. A API não cria tabelas: ela só se conecta e avisa no log se as migrations não tiverem sido aplicadas.
 - **Documentação Interativa**: Swagger UI acessível em `/swagger`.
 
 ---
@@ -36,6 +33,11 @@ cardvoz-api/
 
 ### Pré-requisitos
 - [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
+- Um projeto no [Supabase](https://supabase.com) (ou qualquer PostgreSQL)
+
+### Configuração do banco
+1. Aplique as migrations do repositório [`cardvoz-db`](../cardvoz-db) no seu projeto do Supabase (veja o README dele).
+2. Copie `.env.example` para `.env` e preencha `ConnectionStrings__DefaultConnection` com a conexão do Supabase: no painel, **Connect → Session pooler** (porta 5432). Use o *pooler*, não a conexão direta: a direta só funciona por IPv6, que hospedagens como o Render não suportam. Prefira uma senha só com letras e números, pois caracteres como `@`, `#` e `/` quebram a URI.
 
 ### Passos
 ```bash
