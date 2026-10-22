@@ -10,12 +10,12 @@ O projeto adota uma arquitetura em camadas limpas, com separação de responsabi
 
 ```
 cardvoz-api/
-├── Auth/              # Configuração do JWT, limite de tentativas e leitura do usuário logado
+├── Auth/              # Configuração do JWT e do Google, limite de tentativas e leitura do usuário logado
 ├── Controllers/       # Controladores REST com anotações OpenAPI/Swagger
 ├── DTOs/              # Objetos de transferência de dados (Request / Response)
 ├── Models/            # Entidades (User, RefreshToken, Deck, Card, StudySession, StudyReview)
 ├── Data/              # EF Core DbContext, mapeamento fluente e conexão com o Supabase
-├── Services/          # Interfaces e regras de negócio (inclui login e tokens)
+├── Services/          # Interfaces e regras de negócio (inclui login, Google e tokens)
 ├── Program.cs         # Inicialização, autenticação, autorização, CORS e Swagger
 └── appsettings.json   # Configurações da aplicação
 ```
@@ -25,7 +25,8 @@ cardvoz-api/
 ## ⚡ Recursos e Diferenciais
 
 - **Acessibilidade por Voz**: Rastreamento de respostas acionadas por comandos de voz (`voiceUsed`) e campo `voiceNotes` para orientações fonéticas em cada ficha.
-- **Contas e login**: cadastro e login com e-mail e senha; senha guardada só como hash (PBKDF2-SHA512, 100 mil iterações, com salt); sessão com token de acesso JWT de 15 minutos e token de renovação de 30 dias.
+- **Login com Google**: o site usa só o Google (fluxo *authorization code* com PKCE). A API troca o código pelo `id_token`, confere a assinatura e devolve os mesmos tokens próprios do login por senha. Na primeira vez a conta é criada sozinha.
+- **Contas e login**: cadastro e login com e-mail e senha continuam disponíveis na API (o site não os usa); senha guardada só como hash (PBKDF2-SHA512, 100 mil iterações, com salt); sessão com token de acesso JWT de 15 minutos e token de renovação de 30 dias.
 - **Baralhos privados**: cada pessoa só vê, estuda, edita e exclui os próprios baralhos, fichas e sessões. Recursos de outra pessoa respondem 404.
 - **IDs aleatórios**: todos os registros usam UUID v4, impossível de adivinhar ou varrer em sequência.
 - **Banco de Dados PostgreSQL (Supabase)**: O esquema (tabelas, índices e RLS) fica no repositório [`cardvoz-db`](../cardvoz-db), como migrations do Supabase. A API não cria tabelas: ela só se conecta e avisa no log se as migrations não tiverem sido aplicadas.
@@ -70,13 +71,14 @@ Authorization: Bearer <accessToken>
 ```
 
 ### Contas e sessão (`/api/auth`)
+- `POST /api/auth/google` - Entra com o Google. Corpo: `code` (devolvido pelo Google), `codeVerifier` (PKCE) e `redirectUri` (o mesmo usado na ida, ex.: `https://<site>/entrar/`). Na primeira vez cria a conta; se já existir conta com o mesmo e-mail confirmado (criada com senha), liga as duas. Erros: `400` (endereço de retorno fora do CORS), `401` (código inválido/vencido/já usado ou e-mail do Google não confirmado), `409` (e-mail ligado a outra conta Google), `503` (Google não configurado).
 - `POST /api/auth/register` - Cria a conta (`name`, `email`, `password` com 8 a 128 caracteres) e já devolve os tokens. E-mail repetido: `409`.
 - `POST /api/auth/login` - Entra com `email` e `password`. Erro: `401` com a mesma mensagem para e-mail inexistente e senha errada.
 - `POST /api/auth/refresh` - Troca o `refreshToken` por um novo par de tokens. O token usado deixa de valer.
 - `POST /api/auth/logout` - Revoga o `refreshToken` (sempre `204`).
 - `GET /api/auth/me` - Dados da pessoa logada.
 
-Login, cadastro, renovação e logout devolvem:
+Google, login, cadastro e renovação devolvem:
 
 ```json
 {
@@ -94,7 +96,8 @@ Login, cadastro, renovação e logout devolvem:
 
 ### Proteções
 - **Bloqueio de conta**: 5 senhas erradas seguidas bloqueiam o login por 15 minutos (`429` com `Retry-After`).
-- **Limite por IP**: até 10 chamadas por minuto em cadastro, login, renovação e logout (`429`).
+- **Limite por IP**: até 10 chamadas por minuto em cadastro e login com senha; até 60 por minuto em Google, renovação e logout (`429`). O limite maior existe porque numa rede compartilhada (o Wi-Fi da escola) todo mundo sai pelo mesmo IP, e cada página recarregada é uma renovação.
+- **Login com Google**: o segredo do cliente fica só na API; o `redirectUri` precisa ser `/entrar/` de uma origem do CORS; o `id_token` tem assinatura, emissor, público e validade conferidos. Conta nova só com e-mail confirmado pelo Google.
 - **Tokens**: assinatura HS256 com algoritmo fixo; emissor, público e validade conferidos. Os tokens de renovação são aleatórios (256 bits) e só o hash SHA-256 fica no banco.
 
 ### Variáveis de ambiente
@@ -103,6 +106,8 @@ Login, cadastro, renovação e logout devolvem:
 | `ConnectionStrings__DefaultConnection` | Sim | URI do Session pooler do Supabase |
 | `JWT_SIGNING_KEY` | Sim | Chave de assinatura dos tokens, mínimo 32 caracteres (`openssl rand -base64 48`). Sem ela a API não sobe. |
 | `CORS_ALLOWED_ORIGINS` | Em produção | Endereço do site, sem barra no final |
+| `GOOGLE_CLIENT_ID` | Para o login com Google | ID do cliente OAuth (o mesmo do `NEXT_PUBLIC_GOOGLE_CLIENT_ID` do site). Passo a passo no README do CardVoz, seção "Login com Google" |
+| `GOOGLE_CLIENT_SECRET` | Para o login com Google | Segredo do cliente OAuth. Nunca vai para o site nem para o repositório |
 | `JWT_ISSUER`, `JWT_AUDIENCE` | Não | Padrão: `cardvoz-api` e `cardvoz` |
 
 ---
