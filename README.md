@@ -71,7 +71,7 @@ Authorization: Bearer <accessToken>
 ```
 
 ### Contas e sessão (`/api/auth`)
-- `POST /api/auth/google` - Entra com o Google. Corpo: `code` (devolvido pelo Google), `codeVerifier` (PKCE) e `redirectUri` (o mesmo usado na ida, ex.: `https://<site>/entrar/`). Na primeira vez cria a conta; se já existir conta com o mesmo e-mail confirmado (criada com senha), liga as duas. Erros: `400` (endereço de retorno fora do CORS), `401` (código inválido/vencido/já usado ou e-mail do Google não confirmado), `409` (e-mail ligado a outra conta Google), `503` (Google não configurado).
+- `POST /api/auth/google` - Entra com o Google. Corpo: `code` (devolvido pelo Google), `codeVerifier` (PKCE) e `redirectUri` (o mesmo usado na ida, ex.: `https://<site>/entrar/`). Na primeira vez cria a conta. Não liga a uma conta criada com senha que use o mesmo e-mail: como o cadastro com senha não confirma o e-mail, essa conta pode ter sido criada por outra pessoa. Erros: `400` (endereço de retorno fora do CORS), `401` (código inválido/vencido/já usado ou e-mail do Google não confirmado), `409` (e-mail já usado por uma conta com senha ou por outra conta Google), `503` (Google não configurado).
 - `POST /api/auth/register` - Cria a conta (`name`, `email`, `password` com 8 a 128 caracteres) e já devolve os tokens. E-mail repetido: `409`.
 - `POST /api/auth/login` - Entra com `email` e `password`. Erro: `401` com a mesma mensagem para e-mail inexistente e senha errada.
 - `POST /api/auth/refresh` - Troca o `refreshToken` por um novo par de tokens. O token usado deixa de valer.

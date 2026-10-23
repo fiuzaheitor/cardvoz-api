@@ -145,10 +145,10 @@ public class AuthService : IAuthService
             }
             else if (user.GoogleSubject == null)
             {
-                // Conta antiga (e-mail e senha) com o mesmo e-mail confirmado: liga as duas
-                user.GoogleSubject = identity.Subject;
-                user.UpdatedAt = DateTime.UtcNow;
-                _logger.LogInformation("Conta ligada ao Google: {UserId}", user.Id);
+                // Não liga à conta com senha que já usa este e-mail: o cadastro com senha não
+                // confirma o e-mail, então ela pode ter sido criada por outra pessoa, que
+                // continuaria entrando com a senha dela na conta de quem entrou pelo Google
+                return AuthResult.Fail(AuthFailure.GoogleEmailHasPasswordAccount);
             }
             else
             {
