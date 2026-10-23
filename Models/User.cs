@@ -23,10 +23,18 @@ public class User
 
     /// <summary>
     /// Hash da senha (PBKDF2 do ASP.NET Identity, com salt). A senha nunca é guardada.
+    /// Nulo em contas que entram só com o Google.
     /// </summary>
-    [Required]
     [JsonIgnore]
-    public string PasswordHash { get; set; } = string.Empty;
+    public string? PasswordHash { get; set; }
+
+    /// <summary>
+    /// Identificador da conta Google (claim "sub"), único. Ao contrário do e-mail,
+    /// não muda se a pessoa trocar o e-mail da conta Google.
+    /// </summary>
+    [MaxLength(255)]
+    [JsonIgnore]
+    public string? GoogleSubject { get; set; }
 
     /// <summary>
     /// Tentativas de login erradas seguidas; zera ao acertar.

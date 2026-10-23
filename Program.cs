@@ -57,7 +57,7 @@ builder.Services.AddSwaggerGen(c =>
         Type = SecuritySchemeType.Http,
         Scheme = "bearer",
         BearerFormat = "JWT",
-        Description = "Token de acesso retornado por /api/auth/login ou /api/auth/register.",
+        Description = "Token de acesso retornado por /api/auth/google, /api/auth/login ou /api/auth/register.",
     });
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
@@ -102,7 +102,10 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(configuredOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials();
+            .AllowCredentials()
+            // O cabeçalho Authorization faz o navegador perguntar (OPTIONS) antes de cada
+            // chamada; guardar a resposta evita uma ida extra à API por requisição.
+            .SetPreflightMaxAge(TimeSpan.FromHours(2));
     });
 });
 
@@ -121,6 +124,10 @@ builder.Services.AddDbContext<CardVozDbContext>(options =>
 // === AUTENTICAÇÃO (JWT) ===
 var jwtSettings = JwtSettings.FromConfiguration(builder.Configuration);
 builder.Services.AddSingleton(jwtSettings);
+
+// Login com Google (opcional: sem GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET, a rota responde 503)
+var googleSettings = GoogleSettings.FromConfiguration(builder.Configuration, configuredOrigins);
+builder.Services.AddSingleton(googleSettings);
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -151,7 +158,7 @@ builder.Services.AddAuthorization(options =>
     options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
 });
 
-// === LIMITE DE TENTATIVAS (cadastro, login, renovação) ===
+// === LIMITE DE TENTATIVAS (cadastro, login, Google, renovação) ===
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -161,6 +168,15 @@ builder.Services.AddRateLimiter(options =>
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+    options.AddPolicy(RateLimitPolicies.Session, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
             }));
@@ -185,6 +201,10 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddHttpClient<IGoogleAuthService, GoogleAuthService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 builder.Services.AddScoped<IDeckService, DeckService>();
 builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IStudyService, StudyService>();

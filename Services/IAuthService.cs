@@ -8,10 +8,12 @@ public enum AuthFailure
     InvalidCredentials,
     LockedOut,
     InvalidRefreshToken,
+    GoogleEmailNotVerified,
+    GoogleEmailLinkedToOtherAccount,
 }
 
 /// <summary>
-/// Resultado de cadastro, login ou renovação: os tokens ou o motivo da falha.
+/// Resultado de cadastro, login (senha ou Google) ou renovação: os tokens ou o motivo da falha.
 /// </summary>
 public sealed record AuthResult(AuthResponseDto? Response, AuthFailure? Failure = null, DateTime? LockoutEnd = null)
 {
@@ -23,6 +25,7 @@ public interface IAuthService
 {
     Task<AuthResult> RegisterAsync(RegisterDto dto);
     Task<AuthResult> LoginAsync(LoginDto dto);
+    Task<AuthResult> LoginWithGoogleAsync(GoogleIdentity identity);
     Task<AuthResult> RefreshAsync(string refreshToken);
     Task LogoutAsync(string refreshToken);
     Task<UserResponseDto?> GetProfileAsync(Guid userId);

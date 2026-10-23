@@ -77,7 +77,8 @@ public class AuthService : IAuthService
     {
         var email = NormalizeEmail(dto.Email);
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
-        if (user == null)
+        // Conta criada pelo Google não tem senha: responde igual a e-mail inexistente
+        if (user?.PasswordHash == null)
         {
             _passwordHasher.VerifyHashedPassword(new User(), DummyPasswordHash, dto.Password);
             return AuthResult.Fail(AuthFailure.InvalidCredentials);
@@ -115,6 +116,56 @@ public class AuthService : IAuthService
         user.FailedLoginCount = 0;
         user.LockoutEnd = null;
         return await IssueTokensAsync(user);
+    }
+
+    public async Task<AuthResult> LoginWithGoogleAsync(GoogleIdentity identity)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.GoogleSubject == identity.Subject);
+        if (user == null)
+        {
+            // Sem e-mail confirmado, não dá para garantir que o e-mail é da pessoa
+            if (!identity.EmailVerified)
+            {
+                return AuthResult.Fail(AuthFailure.GoogleEmailNotVerified);
+            }
+
+            var email = NormalizeEmail(identity.Email);
+            user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (user == null)
+            {
+                user = new User
+                {
+                    Name = BuildName(identity.Name, email),
+                    Email = email,
+                    GoogleSubject = identity.Subject,
+                    CreatedAt = DateTime.UtcNow,
+                };
+                _context.Users.Add(user);
+                _logger.LogInformation("Usuário cadastrado pelo Google: {UserId}", user.Id);
+            }
+            else if (user.GoogleSubject == null)
+            {
+                // Conta antiga (e-mail e senha) com o mesmo e-mail confirmado: liga as duas
+                user.GoogleSubject = identity.Subject;
+                user.UpdatedAt = DateTime.UtcNow;
+                _logger.LogInformation("Conta ligada ao Google: {UserId}", user.Id);
+            }
+            else
+            {
+                // O e-mail já pertence a outra conta Google (ex.: e-mail trocado entre contas)
+                return AuthResult.Fail(AuthFailure.GoogleEmailLinkedToOtherAccount);
+            }
+        }
+
+        try
+        {
+            return await IssueTokensAsync(user);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            // Outro pedido criou a conta ao mesmo tempo
+            return AuthResult.Fail(AuthFailure.GoogleEmailLinkedToOtherAccount);
+        }
     }
 
     public async Task<AuthResult> RefreshAsync(string refreshToken)
@@ -220,6 +271,13 @@ public class AuthService : IAuthService
     }
 
     private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
+
+    /// <summary>Nome da conta Google ou, sem ele, a parte do e-mail antes do @.</summary>
+    private static string BuildName(string? googleName, string email)
+    {
+        var name = string.IsNullOrWhiteSpace(googleName) ? email.Split('@')[0] : googleName.Trim();
+        return name.Length > 100 ? name[..100] : name;
+    }
 
     private static UserResponseDto MapUser(User user) => new()
     {

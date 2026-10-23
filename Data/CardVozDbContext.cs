@@ -34,7 +34,8 @@ public class CardVozDbContext : DbContext
             entity.HasIndex(u => u.Email).IsUnique();
             entity.Property(u => u.Name).IsRequired().HasMaxLength(100);
             entity.Property(u => u.Email).IsRequired().HasMaxLength(254);
-            entity.Property(u => u.PasswordHash).IsRequired();
+            entity.HasIndex(u => u.GoogleSubject).IsUnique();
+            entity.Property(u => u.GoogleSubject).HasMaxLength(255);
 
             entity.HasMany(u => u.Decks)
                 .WithOne(d => d.User)
