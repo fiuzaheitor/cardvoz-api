@@ -10,6 +10,7 @@ public enum AuthFailure
     InvalidRefreshToken,
     GoogleEmailNotVerified,
     GoogleEmailLinkedToOtherAccount,
+    GoogleEmailHasPasswordAccount,
 }
 
 /// <summary>

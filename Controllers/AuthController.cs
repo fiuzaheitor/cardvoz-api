@@ -75,8 +75,8 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Entra com a conta Google. Na primeira vez, cria a conta no CardVoz; se já existir
-    /// uma conta com o mesmo e-mail (criada com senha), liga as duas.
+    /// Entra com a conta Google. Na primeira vez, cria a conta no CardVoz. Se o e-mail já
+    /// tiver uma conta criada com senha, responde 409 e a pessoa entra com a senha.
     /// </summary>
     /// <remarks>
     /// O site manda a pessoa ao Google com PKCE e recebe de volta, em /entrar/, um código
@@ -121,6 +121,10 @@ public class AuthController : ControllerBase
             AuthFailure.GoogleEmailLinkedToOtherAccount => Conflict(new
             {
                 message = "Este e-mail já está ligado a outra conta Google no CardVoz.",
+            }),
+            AuthFailure.GoogleEmailHasPasswordAccount => Conflict(new
+            {
+                message = "Este e-mail já tem uma conta no CardVoz criada com senha. Entre com seu e-mail e sua senha.",
             }),
             _ => Ok(result.Response),
         };
