@@ -46,6 +46,11 @@ public class User
     /// </summary>
     public DateTime? LockoutEnd { get; set; }
 
+    /// <summary>
+    /// Pode entrar no painel de admin (gerenciar usuários e baralhos compartilhados).
+    /// </summary>
+    public bool IsAdmin { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? UpdatedAt { get; set; }

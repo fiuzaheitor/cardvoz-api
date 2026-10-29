@@ -67,6 +67,12 @@ public class CardVozDbContext : DbContext
             entity.Property(d => d.Category).IsRequired().HasMaxLength(100);
             entity.Property(d => d.Description).HasMaxLength(1000);
 
+            // Cópia de um baralho compartilhado: excluir o original não exclui as cópias
+            entity.HasOne<Deck>()
+                .WithMany()
+                .HasForeignKey(d => d.SourceDeckId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             entity.HasMany(d => d.Cards)
                 .WithOne(c => c.Deck)
                 .HasForeignKey(c => c.DeckId)

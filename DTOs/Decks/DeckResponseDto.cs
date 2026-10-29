@@ -10,4 +10,7 @@ public class DeckResponseDto
     public int CardCount { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+
+    /// <summary>Baralho compartilhado de onde esta cópia veio (nulo se não for cópia).</summary>
+    public Guid? SourceDeckId { get; set; }
 }

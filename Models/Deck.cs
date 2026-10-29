@@ -15,8 +15,15 @@ public class Deck
 
     /// <summary>
     /// Dono do baralho. Só ele pode ver, estudar, editar e excluir.
+    /// Nulo = baralho compartilhado, criado pelo painel de admin: como toda consulta
+    /// filtra pelo dono, ele não aparece para ninguém; cada pessoa adiciona uma cópia.
     /// </summary>
-    public Guid UserId { get; set; }
+    public Guid? UserId { get; set; }
+
+    /// <summary>
+    /// Baralho compartilhado de onde esta cópia veio. Vira nulo se o compartilhado for excluído.
+    /// </summary>
+    public Guid? SourceDeckId { get; set; }
 
     [Required]
     [MaxLength(150)]
