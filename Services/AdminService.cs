@@ -4,24 +4,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace cardvoz_api.Services;
 
-public enum AdminChange
-{
-    Done,
-    NotFound,
-    /// <summary>Admin tentando tirar o próprio acesso ou excluir a própria conta.</summary>
-    Self,
-}
-
-public interface IAdminService
-{
-    Task<AdminStatsDto> GetStatsAsync();
-    Task<IEnumerable<AdminUserDto>> GetUsersAsync();
-    Task<AdminChange> SetAdminAsync(Guid actingUserId, Guid userId, bool isAdmin);
-    Task<AdminChange> DeleteUserAsync(Guid actingUserId, Guid userId);
-}
-
 public class AdminService : IAdminService
 {
+    /// <summary>Chave da trava do Postgres que põe as mudanças de admin em fila.</summary>
+    private const long AdminChangesLock = 7_347_101;
+
     private readonly CardVozDbContext _context;
     private readonly ILogger<AdminService> _logger;
 
@@ -31,15 +18,17 @@ public class AdminService : IAdminService
         _logger = logger;
     }
 
-    public async Task<AdminStatsDto> GetStatsAsync() => new()
-    {
-        Users = await _context.Users.CountAsync(),
-        Admins = await _context.Users.CountAsync(u => u.IsAdmin),
-        Decks = await _context.Decks.CountAsync(d => d.UserId != null),
-        SharedDecks = await _context.Decks.CountAsync(d => d.UserId == null),
-        Cards = await _context.Cards.CountAsync(),
-        StudySessions = await _context.StudySessions.CountAsync(),
-    };
+    // Uma ida ao banco só, em vez de seis contagens em sequência
+    public async Task<AdminStatsDto> GetStatsAsync() =>
+        await _context.Database.SqlQuery<AdminStatsDto>($"""
+            SELECT
+                (SELECT count(*) FROM "Users")::int AS "Users",
+                (SELECT count(*) FROM "Users" WHERE "IsAdmin")::int AS "Admins",
+                (SELECT count(*) FROM "Decks" WHERE "UserId" IS NOT NULL)::int AS "Decks",
+                (SELECT count(*) FROM "Decks" WHERE "UserId" IS NULL)::int AS "SharedDecks",
+                (SELECT count(*) FROM "Cards")::int AS "Cards",
+                (SELECT count(*) FROM "StudySessions")::int AS "StudySessions"
+            """).SingleAsync();
 
     public async Task<IEnumerable<AdminUserDto>> GetUsersAsync()
     {
@@ -62,29 +51,44 @@ public class AdminService : IAdminService
 
     public async Task<AdminChange> SetAdminAsync(Guid actingUserId, Guid userId, bool isAdmin)
     {
-        // Impede o último admin de se trancar fora do painel
-        if (actingUserId == userId) return AdminChange.Self;
-
-        var updated = await _context.Users
+        var result = await ChangeAsync(actingUserId, userId, () => _context.Users
             .Where(u => u.Id == userId)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(u => u.IsAdmin, isAdmin)
-                .SetProperty(u => u.UpdatedAt, DateTime.UtcNow));
-        if (updated == 0) return AdminChange.NotFound;
+                .SetProperty(u => u.UpdatedAt, DateTime.UtcNow)));
 
-        _logger.LogInformation("Admin {ActingUserId} mudou o admin de {UserId} para {IsAdmin}", actingUserId, userId, isAdmin);
-        return AdminChange.Done;
+        if (result == AdminChange.Done)
+            _logger.LogInformation("Admin {ActingUserId} mudou o admin de {UserId} para {IsAdmin}", actingUserId, userId, isAdmin);
+        return result;
     }
 
     public async Task<AdminChange> DeleteUserAsync(Guid actingUserId, Guid userId)
     {
+        // Baralhos, fichas, sessões de estudo e de login saem juntos (ON DELETE CASCADE)
+        var result = await ChangeAsync(actingUserId, userId,
+            () => _context.Users.Where(u => u.Id == userId).ExecuteDeleteAsync());
+
+        if (result == AdminChange.Done)
+            _logger.LogWarning("Admin {ActingUserId} excluiu o usuário {UserId}", actingUserId, userId);
+        return result;
+    }
+
+    /// <summary>
+    /// Mudanças de admin uma de cada vez, e só se quem pede ainda for admin. Como
+    /// ninguém muda a si mesmo, quem pede continua admin: nunca sobra zero admins,
+    /// nem com dois admins tirando o acesso um do outro ao mesmo tempo.
+    /// </summary>
+    private async Task<AdminChange> ChangeAsync(Guid actingUserId, Guid userId, Func<Task<int>> change)
+    {
         if (actingUserId == userId) return AdminChange.Self;
 
-        // Baralhos, fichas, sessões de estudo e de login saem juntos (ON DELETE CASCADE)
-        var deleted = await _context.Users.Where(u => u.Id == userId).ExecuteDeleteAsync();
-        if (deleted == 0) return AdminChange.NotFound;
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock({AdminChangesLock})");
 
-        _logger.LogWarning("Admin {ActingUserId} excluiu o usuário {UserId}", actingUserId, userId);
+        if (!await _context.Users.AnyAsync(u => u.Id == actingUserId && u.IsAdmin)) return AdminChange.NotAdmin;
+        if (await change() == 0) return AdminChange.NotFound;
+
+        await transaction.CommitAsync();
         return AdminChange.Done;
     }
 }

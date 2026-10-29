@@ -141,7 +141,7 @@ Todos os IDs são UUID (texto, ex.: `"3f6c2b1e-…"`).
 ### Baralhos compartilhados (`/api/shared-decks`)
 Baralho sem dono (`UserId` nulo), criado pelo painel de admin. Não aparece na lista de ninguém: cada pessoa adiciona uma cópia aos próprios baralhos e estuda ou edita a cópia.
 - `GET /api/shared-decks` - Lista os baralhos compartilhados
-- `POST /api/shared-decks/{id}/copy` - Copia o baralho, com as fichas, para os baralhos da pessoa logada (`201`)
+- `POST /api/shared-decks/{id}/copy` - Copia o baralho, com as fichas, para os baralhos da pessoa logada (`201`). A cópia guarda `sourceDeckId` (o compartilhado de origem, que vira nulo se ele for excluído), e `GET /api/decks` devolve esse campo para o site saber o que já foi adicionado
 
 ### Painel de admin (`/api/admin`)
 Só para contas com `IsAdmin` (as demais recebem `403`). A API confere no banco a cada chamada, então tirar o admin vale na hora. O primeiro admin é definido pelo SQL Editor do Supabase (README do `cardvoz-db`); os seguintes, pelo painel. O `user` devolvido no login traz `isAdmin`.

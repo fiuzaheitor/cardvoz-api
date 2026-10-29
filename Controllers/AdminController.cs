@@ -42,7 +42,7 @@ public class AdminController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SetAdmin(Guid id, [FromBody] SetAdminDto dto) =>
-        ToResult(await _adminService.SetAdminAsync(User.GetUserId(), id, dto.IsAdmin),
+        ToResult(await _adminService.SetAdminAsync(User.GetUserId(), id, dto.IsAdmin!.Value),
             "Você não pode mudar o seu próprio acesso de admin.");
 
     /// <summary>Exclui a conta com todos os baralhos, fichas e sessões dela. Ninguém exclui a própria conta.</summary>
@@ -104,6 +104,7 @@ public class AdminController : ControllerBase
     {
         AdminChange.Done => NoContent(),
         AdminChange.Self => BadRequest(new { message = selfMessage }),
+        AdminChange.NotAdmin => Forbid(),
         _ => NotFound(new { message = "Usuário não encontrado." }),
     };
 }

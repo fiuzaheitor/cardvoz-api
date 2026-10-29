@@ -49,7 +49,8 @@ public class DeckService : IDeckService
                 Description = d.Description,
                 CardCount = d.Cards.Count,
                 CreatedAt = d.CreatedAt,
-                UpdatedAt = d.UpdatedAt
+                UpdatedAt = d.UpdatedAt,
+                SourceDeckId = d.SourceDeckId
             })
             .ToListAsync();
 
@@ -158,7 +159,8 @@ public class DeckService : IDeckService
             Description = deck.Description,
             CardCount = deck.Cards.Count,
             CreatedAt = deck.CreatedAt,
-            UpdatedAt = deck.UpdatedAt
+            UpdatedAt = deck.UpdatedAt,
+            SourceDeckId = deck.SourceDeckId
         };
     }
 
@@ -189,6 +191,9 @@ public class DeckService : IDeckService
     // === Baralhos compartilhados: sem dono, geridos pelo painel de admin ===
 
     private const string SharedCategory = "Geral";
+
+    /// <summary>Tamanho da coluna "Slug" no banco.</summary>
+    private const int MaxSlugLength = 150;
 
     public async Task<IEnumerable<DeckResponseDto>> GetSharedAsync()
     {
@@ -287,6 +292,7 @@ public class DeckService : IDeckService
             Slug = await EnsureUniqueSlugAsync(userId, shared.Slug),
             Category = shared.Category,
             Description = shared.Description,
+            SourceDeckId = shared.Id,
             CreatedAt = now
         };
 
@@ -327,7 +333,8 @@ public class DeckService : IDeckService
         Description = deck.Description,
         CardCount = cardCount,
         CreatedAt = deck.CreatedAt,
-        UpdatedAt = deck.UpdatedAt
+        UpdatedAt = deck.UpdatedAt,
+        SourceDeckId = deck.SourceDeckId
     };
 
     private static DeckDetailResponseDto ToDetail(Deck deck) => new()
@@ -369,6 +376,8 @@ public class DeckService : IDeckService
         var clean = stringBuilder.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant();
         clean = Regex.Replace(clean, @"[^a-z0-9\s-]", "");
         clean = Regex.Replace(clean, @"\s+", "-").Trim('-');
+        if (clean.Length > MaxSlugLength)
+            clean = clean[..MaxSlugLength].TrimEnd('-');
         return string.IsNullOrWhiteSpace(clean) ? "deck" : clean;
     }
 
@@ -380,7 +389,9 @@ public class DeckService : IDeckService
         while (await _context.Decks.AnyAsync(d =>
                    d.UserId == userId && d.Slug == slug && (!excludeId.HasValue || d.Id != excludeId.Value)))
         {
-            slug = $"{baseSlug}-{counter++}";
+            // O sufixo cabe nos 150 caracteres da coluna cortando o fim do slug
+            var suffix = $"-{counter++}";
+            slug = baseSlug[..Math.Min(baseSlug.Length, MaxSlugLength - suffix.Length)].TrimEnd('-') + suffix;
         }
 
         return slug;

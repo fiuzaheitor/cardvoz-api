@@ -20,6 +20,11 @@ public class Deck
     /// </summary>
     public Guid? UserId { get; set; }
 
+    /// <summary>
+    /// Baralho compartilhado de onde esta cópia veio. Vira nulo se o compartilhado for excluído.
+    /// </summary>
+    public Guid? SourceDeckId { get; set; }
+
     [Required]
     [MaxLength(150)]
     public string Slug { get; set; } = string.Empty;
