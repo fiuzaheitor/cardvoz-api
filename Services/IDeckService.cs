@@ -1,3 +1,4 @@
+using cardvoz_api.DTOs.Admin;
 using cardvoz_api.DTOs.Decks;
 
 namespace cardvoz_api.Services;
@@ -14,4 +15,12 @@ public interface IDeckService
     Task<DeckResponseDto?> UpdateAsync(Guid userId, Guid id, UpdateDeckDto dto);
     Task<bool> DeleteAsync(Guid userId, Guid id);
     Task<IEnumerable<string>> GetCategoriesAsync(Guid userId);
+
+    // Baralhos compartilhados (sem dono): o admin gerencia; cada pessoa copia para os seus
+    Task<IEnumerable<DeckResponseDto>> GetSharedAsync();
+    Task<DeckDetailResponseDto?> GetSharedByIdAsync(Guid id);
+    Task<DeckResponseDto> CreateSharedAsync(SharedDeckDto dto);
+    Task<DeckResponseDto?> UpdateSharedAsync(Guid id, SharedDeckDto dto);
+    Task<bool> DeleteSharedAsync(Guid id);
+    Task<DeckResponseDto?> CopySharedAsync(Guid userId, Guid sharedId);
 }

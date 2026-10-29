@@ -105,7 +105,7 @@ Google, login, cadastro e renovação devolvem:
 |---|---|---|
 | `ConnectionStrings__DefaultConnection` | Sim | URI do Session pooler do Supabase |
 | `JWT_SIGNING_KEY` | Sim | Chave de assinatura dos tokens, mínimo 32 caracteres (`openssl rand -base64 48`). Sem ela a API não sobe. |
-| `CORS_ALLOWED_ORIGINS` | Em produção | Endereço do site, sem barra no final |
+| `CORS_ALLOWED_ORIGINS` | Em produção | Endereços do site e do painel de admin, separados por vírgula e sem barra no final |
 | `GOOGLE_CLIENT_ID` | Para o login com Google | ID do cliente OAuth (o mesmo do `NEXT_PUBLIC_GOOGLE_CLIENT_ID` do site). Passo a passo no README do CardVoz, seção "Login com Google" |
 | `GOOGLE_CLIENT_SECRET` | Para o login com Google | Segredo do cliente OAuth. Nunca vai para o site nem para o repositório |
 | `JWT_ISSUER`, `JWT_AUDIENCE` | Não | Padrão: `cardvoz-api` e `cardvoz` |
@@ -137,6 +137,23 @@ Todos os IDs são UUID (texto, ex.: `"3f6c2b1e-…"`).
 - `POST /api/study-sessions/{id}/finish` - Conclui a sessão e consolida pontuação
 - `GET /api/study-sessions/{id}` - Consulta detalhes de uma sessão
 - `GET /api/study-sessions/history` - Histórico de sessões da pessoa logada (`?deckId=`, `?limit=` até 100)
+
+### Baralhos compartilhados (`/api/shared-decks`)
+Baralho sem dono (`UserId` nulo), criado pelo painel de admin. Não aparece na lista de ninguém: cada pessoa adiciona uma cópia aos próprios baralhos e estuda ou edita a cópia.
+- `GET /api/shared-decks` - Lista os baralhos compartilhados
+- `POST /api/shared-decks/{id}/copy` - Copia o baralho, com as fichas, para os baralhos da pessoa logada (`201`)
+
+### Painel de admin (`/api/admin`)
+Só para contas com `IsAdmin` (as demais recebem `403`). A API confere no banco a cada chamada, então tirar o admin vale na hora. O primeiro admin é definido pelo SQL Editor do Supabase (README do `cardvoz-db`); os seguintes, pelo painel. O `user` devolvido no login traz `isAdmin`.
+- `GET /api/admin/stats` - Números gerais (usuários, admins, baralhos, compartilhados, fichas, sessões)
+- `GET /api/admin/users` - Contas, com forma de entrar (senha/Google) e número de baralhos
+- `PUT /api/admin/users/{id}/admin` - Dá ou tira o admin (`{ "isAdmin": true }`). Ninguém muda o próprio acesso (`400`)
+- `DELETE /api/admin/users/{id}` - Exclui a conta com baralhos, fichas e sessões. Ninguém exclui a própria conta (`400`)
+- `GET /api/admin/shared-decks` - Lista os baralhos compartilhados
+- `GET /api/admin/shared-decks/{id}` - Baralho compartilhado com as fichas
+- `POST /api/admin/shared-decks` - Cria (`title`, `description`, `cards: [{ question, answer }]`, de 1 a 1000 fichas)
+- `PUT /api/admin/shared-decks/{id}` - Substitui título, descrição e fichas. As cópias já feitas não mudam
+- `DELETE /api/admin/shared-decks/{id}` - Exclui. As cópias já feitas continuam com quem copiou
 
 ---
 

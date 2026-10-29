@@ -206,6 +206,7 @@ builder.Services.AddHttpClient<IGoogleAuthService, GoogleAuthService>(client =>
     client.Timeout = TimeSpan.FromSeconds(15);
 });
 builder.Services.AddScoped<IDeckService, DeckService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IStudyService, StudyService>();
 
