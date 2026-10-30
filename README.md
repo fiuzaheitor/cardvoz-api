@@ -124,6 +124,8 @@ Todos os IDs são UUID (texto, ex.: `"3f6c2b1e-…"`).
 - `PUT /api/decks/{id}` - Edita título, categoria, descrição ou slug (só os campos enviados)
 - `DELETE /api/decks/{id}` - Exclui o baralho com suas fichas e sessões
 
+> **A fazer:** guardar o idioma das fichas (perguntas e respostas) no baralho. Ver [`docs/tarefas/idioma-das-fichas.md`](docs/tarefas/idioma-das-fichas.md).
+
 ### Cartões (`/api/cards`)
 - `GET /api/decks/{deckId}/cards` - Lista cartões de um baralho
 - `GET /api/cards/{id}` - Detalhes de um cartão
