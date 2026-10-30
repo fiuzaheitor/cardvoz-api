@@ -13,7 +13,7 @@ Como a API não tem onde guardar essa escolha, ela fica só no aparelho. Num bar
 
 ## 2. Banco (`cardvoz-db`)
 
-Nova migration em `"Decks"`:
+**Já criada:** `supabase/migrations/20261030000000_idioma_das_fichas.sql`, na branch `feat/idioma-das-fichas` do `cardvoz-db` (com checagem de formato). Falta aplicar no Supabase (`npx supabase db push`) depois do merge. O conteúdo:
 
 ```sql
 ALTER TABLE "Decks"
