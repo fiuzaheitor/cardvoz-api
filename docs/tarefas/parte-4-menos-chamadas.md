@@ -97,7 +97,9 @@ Acrescenta várias fichas a um baralho que já existe (`{ "cards": [...] }`), na
 
 ## 5. Como o site usa (para conferir de ponta a ponta)
 
-Arquivo `src/lib/api.ts` do site: `importDeck`, `saveStudySession` e `getDeckChanges`. Se a rota responder **404 ou 405**, o site entende que a API ainda não a tem, lembra disso até recarregar a página e usa o caminho antigo. Qualquer outro erro é tratado como erro de verdade.
+Arquivo `src/lib/api.ts` do site: `importDeck`, `completeStudySession` e `getDeckChanges`. Se a rota responder **404 ou 405**, o site entende que a API ainda não a tem, lembra disso até recarregar a página e usa o caminho antigo. Qualquer outro erro é tratado como erro de verdade.
+
+Sem a rota de sessão completa, o site usa `start` + `review` + `finish` e guarda o id da sessão para continuar a mesma sessão se a internet cair. Com a rota nova, cada rodada de estudo vira uma chamada só.
 
 Para testar com o site: rode a API com as rotas novas e o site com `NEXT_PUBLIC_API_URL=http://localhost:5000/api`, entre na conta e:
 1. Importe um arquivo de `public/modelos/` em "Novo baralho": deve aparecer **uma** chamada `POST /api/decks/import` na aba Network.
