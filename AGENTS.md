@@ -79,10 +79,10 @@ docker build -t cardvoz-api .   # o mesmo build do GitHub Actions
 
 ## 6. Combinados da equipe
 
-Estas regras vieram de conversas da equipe com assistentes de IA e valem para todo mundo, use ou não uma ferramenta de IA. Os `AGENTS.md` do `cardvoz` e do `cardvoz-db` têm a mesma seção, adaptada a cada repositório.
+Estas regras vieram de conversas da equipe com assistentes de IA e valem para todo mundo, use ou não uma ferramenta de IA. O `AGENTS.md` do `cardvoz` tem a mesma seção, adaptada ao site.
 
 - **Português do Brasil** em respostas, comentários, commits, PRs e documentação. Quando a pessoa disser que entendeu, siga para o próximo passo sem repetir a explicação.
 - **Quem usa o CardVoz:** a cliente é cega e estuda com o TalkBack; o público inclui pessoas com baixa visão. Mensagens de erro da API podem aparecer na tela e ser lidas pelo leitor de tela: escreva em português, curtas e dizendo o que fazer.
 - **Trabalho dividido:** este repositório tem dono no grupo (`fiuzaheitor`, repositório `upstream`). Mudança de código aqui só depois de combinar com ele; quem precisa de algo descreve a tarefa em `docs/tarefas/` e abre PR para ele. Correções só de documentação podem ir direto em PR.
 - **Problemas** viram issue no GitHub do repositório certo. O commit que corrige cita a issue (`Closes #10`), e ela fecha sozinha quando o PR entra na `main`.
-- **Pedidos da cliente em andamento (out/2026):** guardar o idioma das fichas ([`docs/tarefas/idioma-das-fichas.md`](docs/tarefas/idioma-das-fichas.md)) e as rotas da parte 4 do modo sem login (`docs/tarefas/parte-4-menos-chamadas.md`, na branch `docs/parte-4-menos-chamadas`).
+- **Pedidos da cliente em andamento (out/2026):** guardar o idioma das fichas ([`docs/tarefas/idioma-das-fichas.md`](docs/tarefas/idioma-das-fichas.md)) e as rotas da parte 4 do modo sem login ([`docs/tarefas/parte-4-menos-chamadas.md`](docs/tarefas/parte-4-menos-chamadas.md)).

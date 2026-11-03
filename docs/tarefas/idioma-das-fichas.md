@@ -13,12 +13,12 @@ Como a API não tem onde guardar essa escolha, ela fica só no aparelho. Num bar
 
 ## 2. Banco (`cardvoz-db`)
 
-**Já criada:** `supabase/migrations/20261030000000_idioma_das_fichas.sql`, na branch `feat/idioma-das-fichas` do `cardvoz-db` (com checagem de formato). Falta aplicar no Supabase (`npx supabase db push`) depois do merge. O conteúdo:
+**Já na `main`:** `supabase/migrations/20261030000000_idioma_das_fichas.sql` (cardvoz-db#3, 30/10). **Confira se foi aplicada no Supabase** (`npx supabase db push`) antes de publicar a API: com o modelo novo e sem as colunas, toda consulta de baralho falha. O conteúdo:
 
 ```sql
-ALTER TABLE "Decks"
-  ADD COLUMN "QuestionLanguage" varchar(10) NULL,
-  ADD COLUMN "AnswerLanguage"   varchar(10) NULL;
+ALTER TABLE "Decks" ADD COLUMN "QuestionLanguage" character varying(10);
+ALTER TABLE "Decks" ADD COLUMN "AnswerLanguage" character varying(10);
+-- e uma checagem em cada coluna: nulo ou código de idioma (^[a-z]{2,3}(-[A-Z]{2})?$)
 ```
 
 `NULL` significa português, o idioma padrão. Os baralhos que já existem ficam `NULL`.
@@ -27,8 +27,10 @@ ALTER TABLE "Decks"
 
 - `Models/Deck.cs`: `QuestionLanguage` e `AnswerLanguage` (`string?`, `MaxLength(10)`).
 - `DeckResponseDto` e `DeckDetailResponseDto`: os dois campos (camelCase no JSON: `questionLanguage`, `answerLanguage`).
-- `UpdateDeckDto` (e `CreateDeckDto`): aceitar os dois campos. **Validar** o formato (`^[a-z]{2,3}(-[A-Z]{2})?$`, ex.: `en`, `es`, `pt-BR`). O valor vai para um atributo HTML, então nada além de código de idioma pode passar. Um texto vazio volta o campo para `NULL`.
+- `UpdateDeckDto` (e `CreateDeckDto`): aceitar os dois campos. **Validar** o formato (`^[a-z]{2,3}(-[A-Z]{2})?$`, ex.: `en`, `es`, `pt-BR`), a mesma regra da checagem do banco. O valor vai para um atributo HTML, então nada além de código de idioma pode passar.
+- No `PUT`, como nos outros campos: **ausente ou `null` não muda nada**; **texto vazio volta para `NULL`** (português); outro valor é validado e gravado. Atualize `UpdatedAt`, para a mudança aparecer na rota de alterações da parte 4.
 - Copiar os campos em `CopySharedAsync` (baralhos prontos) e incluí-los na rota de alterações da parte 4, se ela já existir.
+- **Baralhos compartilhados:** um baralho pronto de inglês também precisa do idioma. Aceitar os dois campos no `SharedDeckDto` (`/api/admin/shared-decks`) e no editor do painel (`cardvoz-admin`, `src/app/baralhos/editar/page.tsx`).
 
 ## 4. Site (depois da API publicada)
 
