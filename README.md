@@ -126,8 +126,6 @@ Todos os IDs são UUID (texto, ex.: `"3f6c2b1e-…"`).
 - `PUT /api/decks/{id}` - Edita título, categoria, descrição ou slug (só os campos enviados)
 - `DELETE /api/decks/{id}` - Exclui o baralho com suas fichas e sessões
 
-> **A fazer:** guardar o idioma das fichas (perguntas e respostas) no baralho. Ver [`docs/tarefas/idioma-das-fichas.md`](docs/tarefas/idioma-das-fichas.md).
-
 ### Fichas (`/api/cards`)
 - `GET /api/decks/{deckId}/cards` - Lista as fichas de um baralho
 - `GET /api/cards/{id}` - Detalhes de uma ficha
@@ -160,8 +158,8 @@ Só para contas com `IsAdmin` (as demais recebem `403`). A API confere no banco 
 - `DELETE /api/admin/shared-decks/{id}` - Exclui. As cópias já feitas continuam com quem copiou
 
 ### Pedidos em andamento
-- **Idioma das fichas**: guardar o idioma das perguntas e das respostas no baralho ([`docs/tarefas/idioma-das-fichas.md`](docs/tarefas/idioma-das-fichas.md)). A migration já está no `cardvoz-db`.
-- **Menos chamadas (parte 4 do modo sem login)**: rotas para importar um baralho inteiro, buscar só o que mudou e fechar uma sessão de estudo numa chamada. Descrita em `docs/tarefas/parte-4-menos-chamadas.md`, na branch `docs/parte-4-menos-chamadas`. O site já usa essas rotas quando existem e volta ao caminho antigo quando respondem 404/405.
+- **Idioma das fichas**: guardar o idioma das perguntas e das respostas no baralho ([`docs/tarefas/idioma-das-fichas.md`](docs/tarefas/idioma-das-fichas.md)). A migration já está na `main` do `cardvoz-db` e precisa estar aplicada no Supabase antes de publicar a API com os campos novos.
+- **Menos chamadas (parte 4 do modo sem login)**: rotas para importar um baralho inteiro, buscar só o que mudou e fechar uma sessão de estudo numa chamada ([`docs/tarefas/parte-4-menos-chamadas.md`](docs/tarefas/parte-4-menos-chamadas.md)). O site já usa essas rotas quando existem e volta ao caminho antigo quando respondem 404/405.
 
 ---
 
