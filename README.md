@@ -124,6 +124,8 @@ Todos os IDs são UUID (texto, ex.: `"3f6c2b1e-…"`).
 - `PUT /api/decks/{id}` - Edita título, categoria, descrição ou slug (só os campos enviados)
 - `DELETE /api/decks/{id}` - Exclui o baralho com suas fichas e sessões
 
+> **Em andamento:** rotas com menos chamadas (`POST /api/decks/import`, `GET /api/decks/changes`, `POST /api/study-sessions/complete`), pedidas pelo modo sem login do site. Ver [`docs/tarefas/parte-4-menos-chamadas.md`](docs/tarefas/parte-4-menos-chamadas.md).
+
 ### Cartões (`/api/cards`)
 - `GET /api/decks/{deckId}/cards` - Lista cartões de um baralho
 - `GET /api/cards/{id}` - Detalhes de um cartão
