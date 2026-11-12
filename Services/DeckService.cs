@@ -84,7 +84,10 @@ public class DeckService : IDeckService
         return deck == null ? null : ToDetail(deck);
     }
 
-    public async Task<DeckResponseDto> CreateAsync(Guid userId, CreateDeckDto dto)
+    public Task<DeckResponseDto> CreateAsync(Guid userId, CreateDeckDto dto) =>
+        WithUserDecksLockAsync(userId, () => CreateCoreAsync(userId, dto));
+
+    private async Task<DeckResponseDto> CreateCoreAsync(Guid userId, CreateDeckDto dto)
     {
         var slug = !string.IsNullOrWhiteSpace(dto.Slug)
             ? GenerateSlug(dto.Slug)
@@ -129,7 +132,10 @@ public class DeckService : IDeckService
     /// Baralho e fichas num SaveChanges só: o EF grava tudo numa transação, então
     /// ou o baralho chega inteiro ou nada é salvo.
     /// </summary>
-    public async Task<(CreateOutcome Outcome, DeckDetailResponseDto? Deck)> ImportAsync(Guid userId, ImportDeckDto dto)
+    public Task<(CreateOutcome Outcome, DeckDetailResponseDto? Deck)> ImportAsync(Guid userId, ImportDeckDto dto) =>
+        WithUserDecksLockAsync(userId, () => ImportCoreAsync(userId, dto));
+
+    private async Task<(CreateOutcome Outcome, DeckDetailResponseDto? Deck)> ImportCoreAsync(Guid userId, ImportDeckDto dto)
     {
         if (dto.Id.HasValue)
         {
@@ -240,7 +246,10 @@ public class DeckService : IDeckService
         }).ToList();
     }
 
-    public async Task<DeckResponseDto?> UpdateAsync(Guid userId, Guid id, UpdateDeckDto dto)
+    public Task<DeckResponseDto?> UpdateAsync(Guid userId, Guid id, UpdateDeckDto dto) =>
+        WithUserDecksLockAsync(userId, () => UpdateCoreAsync(userId, id, dto));
+
+    private async Task<DeckResponseDto?> UpdateCoreAsync(Guid userId, Guid id, UpdateDeckDto dto)
     {
         var deck = await _context.Decks
             .Include(d => d.Cards)
@@ -411,7 +420,10 @@ public class DeckService : IDeckService
         return deleted > 0;
     }
 
-    public async Task<DeckResponseDto?> CopySharedAsync(Guid userId, Guid sharedId)
+    public Task<DeckResponseDto?> CopySharedAsync(Guid userId, Guid sharedId) =>
+        WithUserDecksLockAsync(userId, () => CopySharedCoreAsync(userId, sharedId));
+
+    private async Task<DeckResponseDto?> CopySharedCoreAsync(Guid userId, Guid sharedId)
     {
         var shared = await _context.Decks
             .AsNoTracking()
@@ -491,6 +503,7 @@ public class DeckService : IDeckService
         QuestionLanguage = deck.QuestionLanguage,
         AnswerLanguage = deck.AnswerLanguage,
         LastStudiedAt = deck.LastStudiedAt,
+        SourceDeckId = deck.SourceDeckId,
         Cards = deck.Cards.Select(c => new CardResponseDto
         {
             Id = c.Id,
@@ -536,6 +549,20 @@ public class DeckService : IDeckService
     /// porque o segmento fixo tem prioridade sobre {idOrSlug}.
     /// </summary>
     private static readonly HashSet<string> ReservedSlugs = new() { "changes", "import", "categories" };
+
+    /// <summary>
+    /// Uma operação por vez nos baralhos da pessoa: o slug conferido como livre não é
+    /// pego por outro pedido antes de gravar, e o mesmo import repetido ao mesmo tempo
+    /// devolve o baralho salvo em vez de bater na chave primária (500).
+    /// </summary>
+    private async Task<T> WithUserDecksLockAsync<T>(Guid userId, Func<Task<T>> work)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.LockUserDecksAsync(userId);
+        var result = await work();
+        await transaction.CommitAsync();
+        return result;
+    }
 
     private async Task<string> EnsureUniqueSlugAsync(Guid userId, string baseSlug, Guid? excludeId = null)
     {

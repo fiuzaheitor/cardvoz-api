@@ -6,7 +6,7 @@ namespace cardvoz_api.DTOs.Decks;
 /// Baralho com todas as fichas numa chamada (POST /api/decks/import). Usado pelo
 /// site ao importar um arquivo e ao levar para a conta um baralho do aparelho.
 /// </summary>
-public class ImportDeckDto
+public class ImportDeckDto : IValidatableObject
 {
     /// <summary>
     /// Id gerado no aparelho (opcional). O mesmo pedido chegando duas vezes (internet
@@ -38,6 +38,13 @@ public class ImportDeckDto
     /// <summary>Até 1000 fichas, o mesmo limite da importação do site.</summary>
     [MaxLength(1000, ErrorMessage = "Envie no máximo 1000 fichas por vez.")]
     public List<ImportCardDto> Cards { get; set; } = new();
+
+    // As anotações não olham dentro da lista: um item null passaria e derrubaria a API (500)
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (Cards != null && Cards.Any(c => c == null))
+            yield return new ValidationResult("Todas as fichas precisam de pergunta e resposta.", new[] { nameof(Cards) });
+    }
 }
 
 /// <summary>Ficha da importação, com os acertos e erros que já tinha no aparelho (opcionais).</summary>
@@ -68,12 +75,19 @@ public class ImportCardDto
 }
 
 /// <summary>Várias fichas para um baralho que já existe (POST /api/decks/{id}/cards/batch).</summary>
-public class BatchCardsDto
+public class BatchCardsDto : IValidatableObject
 {
     [Required(ErrorMessage = "Envie as fichas.")]
     [MinLength(1, ErrorMessage = "Envie pelo menos uma ficha.")]
     [MaxLength(1000, ErrorMessage = "Envie no máximo 1000 fichas por vez.")]
     public List<ImportCardDto> Cards { get; set; } = new();
+
+    // As anotações não olham dentro da lista: um item null passaria e derrubaria a API (500)
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (Cards != null && Cards.Any(c => c == null))
+            yield return new ValidationResult("Todas as fichas precisam de pergunta e resposta.", new[] { nameof(Cards) });
+    }
 }
 
 /// <summary>Resposta de GET /api/decks/changes.</summary>

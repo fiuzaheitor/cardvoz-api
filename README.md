@@ -73,7 +73,7 @@ Authorization: Bearer <accessToken>
 ```
 
 ### Contas e sessão (`/api/auth`)
-- `POST /api/auth/google` - Entra com o Google. Corpo: `code` (devolvido pelo Google), `codeVerifier` (PKCE) e `redirectUri` (o mesmo usado na ida, ex.: `https://<site>/entrar/`). Na primeira vez cria a conta. Não liga a uma conta criada com senha que use o mesmo e-mail: como o cadastro com senha não confirma o e-mail, essa conta pode ter sido criada por outra pessoa. Erros: `400` (endereço de retorno fora do CORS), `401` (código inválido/vencido/já usado ou e-mail do Google não confirmado), `409` (e-mail já usado por uma conta com senha ou por outra conta Google), `503` (Google não configurado).
+- `POST /api/auth/google` - Entra com o Google. Corpo: `code` (devolvido pelo Google), `codeVerifier` (PKCE) e `redirectUri` (o mesmo usado na ida, ex.: `https://<site>/entrar/`). Na primeira vez cria a conta. Liga o Google a uma conta criada com senha no mesmo e-mail só se esse e-mail já foi confirmado (link do cadastro, Perfil ou "Esqueci minha senha"); sem confirmar, a conta pode ter sido criada por outra pessoa. Erros: `400` (endereço de retorno fora do CORS), `401` (código inválido/vencido/já usado ou e-mail do Google não confirmado), `409` (e-mail de uma conta com senha ainda não confirmado, ou de outra conta Google), `503` (Google não configurado).
 - `POST /api/auth/register` - Cria a conta (`name`, `email`, `password` com 8 a 128 caracteres) e já devolve os tokens. E-mail repetido: `409`.
 - `POST /api/auth/login` - Entra com `email` e `password`. Erro: `401` com a mesma mensagem para e-mail inexistente e senha errada.
 - `POST /api/auth/refresh` - Troca o `refreshToken` por um novo par de tokens. O token usado deixa de valer.
@@ -100,6 +100,8 @@ Google, login, cadastro e renovação devolvem:
 - **Bloqueio de conta**: 5 senhas erradas seguidas bloqueiam o login por 15 minutos (`429` com `Retry-After`).
 - **Limite por IP**: até 10 chamadas por minuto em cadastro e login com senha; até 60 por minuto em Google, renovação e logout (`429`). O limite maior existe porque numa rede compartilhada (o Wi-Fi da escola) todo mundo sai pelo mesmo IP, e cada página recarregada é uma renovação.
 - **Login com Google**: o segredo do cliente fica só na API; o `redirectUri` precisa ser `/entrar/` de uma origem do CORS; o `id_token` tem assinatura, emissor, público e validade conferidos. Conta nova só com e-mail confirmado pelo Google.
+- **Gravações ao mesmo tempo**: dois aparelhos enviando estudo do mesmo baralho, ou o mesmo pedido repetido enquanto o primeiro grava, esperam um pelo outro (trava do PostgreSQL por baralho e por pessoa, `Data/DbLocks.cs`). Nenhum acerto se perde e o pedido repetido responde 200 com o que já foi salvo.
+- **Datas do aparelho**: horários do futuro (relógio adiantado) viram a hora do servidor, no estudo e no histórico importado.
 - **Tokens**: assinatura HS256 com algoritmo fixo; emissor, público e validade conferidos. Os tokens de renovação são aleatórios (256 bits) e só o hash SHA-256 fica no banco.
 
 ### Variáveis de ambiente
@@ -170,7 +172,7 @@ Direitos da pessoa sobre os próprios dados (LGPD).
 ### Baralhos compartilhados (`/api/shared-decks`)
 Baralho sem dono (`UserId` nulo), criado pelo painel de admin. Não aparece na lista de ninguém: cada pessoa adiciona uma cópia aos próprios baralhos e estuda ou edita a cópia.
 - `GET /api/shared-decks` - Lista os baralhos compartilhados
-- `POST /api/shared-decks/{id}/copy` - Copia o baralho, com as fichas, para os baralhos da pessoa logada (`201`). A cópia guarda `sourceDeckId` (o compartilhado de origem, que vira nulo se ele for excluído), e `GET /api/decks` devolve esse campo para o site saber o que já foi adicionado
+- `POST /api/shared-decks/{id}/copy` - Copia o baralho, com as fichas, para os baralhos da pessoa logada (`201`). A cópia guarda `sourceDeckId` (o compartilhado de origem, que vira nulo se ele for excluído), e `GET /api/decks`, `GET /api/decks/{id}`, `/api/decks/changes` e `/api/decks/import` devolvem esse campo para o site saber o que já foi adicionado
 
 ### Painel de admin (`/api/admin`)
 Só para contas com `IsAdmin` (as demais recebem `403`). A API confere no banco a cada chamada, então tirar o admin vale na hora. O primeiro admin é definido pelo SQL Editor do Supabase (README do `cardvoz-db`); os seguintes, pelo painel. O `user` devolvido no login traz `isAdmin`.

@@ -56,7 +56,8 @@ Program.cs     Injeção de dependências, autenticação, CORS, limites e Swagg
 - Token de acesso JWT de 15 minutos (HS256, algoritmo fixo) e token de renovação de 30 dias, aleatório (256 bits), guardado só como hash SHA-256.
 - A renovação troca o token (rotação). Token já trocado reapresentado depois de 30 segundos é tratado como roubo e encerra todas as sessões da pessoa. O site garante uma renovação por vez, inclusive entre abas.
 - Senha com hash PBKDF2-SHA512 (100 mil iterações, com salt). 5 erros seguidos bloqueiam por 15 minutos.
-- **Não junte contas:** e-mail do Google que já tem conta com senha responde 409. O cadastro com senha não confirma o e-mail; juntar deixaria quem cadastrou o e-mail de outra pessoa entrar na conta dela.
+- **Só junte contas com o e-mail confirmado:** entrar com o Google num e-mail que tem conta com senha liga o Google a ela quando o e-mail já foi confirmado (`EmailConfirmedAt`); sem confirmar, responde 409. Juntar sem confirmar deixaria quem cadastrou o e-mail de outra pessoa entrar na conta dela.
+- **Duas gravações ao mesmo tempo:** estudo (`/complete` e `/review`) trava o baralho, e criar, importar, renomear e copiar travam os baralhos da pessoa (`Data/DbLocks.cs`, `pg_advisory_xact_lock` dentro de uma transação). Sem isso, dois aparelhos enviando juntos perdiam acertos e erros, e o mesmo pedido repetido dava 500 em vez de 200. A renovação de sessão revoga o token antigo e cria o novo na mesma transação.
 - Limite por IP: 10/min em login e cadastro com senha; 60/min em Google, renovação e logout (rede da escola divide o mesmo IP).
 
 ---

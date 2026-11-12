@@ -70,6 +70,17 @@ public class StudyService : IStudyService
 
     public async Task<StudyReviewResponseDto?> RecordReviewAsync(Guid userId, Guid sessionId, RecordReviewDto dto)
     {
+        // Trava o baralho antes de ler os números da ficha: outro estudo ao mesmo
+        // tempo (outro aparelho) não pode gravar por cima desta resposta
+        var deckId = await _context.StudySessions
+            .Where(s => s.Id == sessionId && s.Deck!.UserId == userId)
+            .Select(s => (Guid?)s.DeckId)
+            .FirstOrDefaultAsync();
+        if (deckId == null)
+            return null;
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.LockDeckAsync(deckId.Value);
+
         var session = await _context.StudySessions
             .Include(s => s.Deck)
             .FirstOrDefaultAsync(s => s.Id == sessionId && s.Deck!.UserId == userId);
@@ -109,6 +120,7 @@ public class StudyService : IStudyService
         session.Deck!.LastStudiedAt = review.AnsweredAt;
 
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         return new StudyReviewResponseDto
         {
@@ -148,6 +160,12 @@ public class StudyService : IStudyService
     public async Task<(CreateOutcome Outcome, StudySessionResponseDto? Session)> CompleteSessionAsync(
         Guid userId, CompleteSessionDto dto)
     {
+        // Um estudo por vez em cada baralho: dois aparelhos enviando juntos leriam os
+        // mesmos números e um apagaria o outro; e o mesmo envio repetido ao mesmo tempo
+        // passaria pelos dois "já existe?" e bateria na chave primária (500)
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.LockDeckAsync(dto.DeckId);
+
         if (dto.Id.HasValue)
         {
             // O mesmo pedido de novo: não cria outra sessão nem soma as respostas duas vezes
@@ -218,6 +236,7 @@ public class StudyService : IStudyService
 
         _context.StudySessions.Add(session);
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         _logger.LogInformation("Sessão concluída recebida: ID {SessionId} com {Count} respostas", session.Id, answers.Count);
 

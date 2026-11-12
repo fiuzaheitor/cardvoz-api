@@ -21,5 +21,11 @@ public class DeckDetailResponseDto
 
     /// <summary>Última vez que o baralho foi estudado (nulo = nunca).</summary>
     public DateTime? LastStudiedAt { get; set; }
+
+    /// <summary>
+    /// Baralho compartilhado de onde a cópia veio (nulo = criado pela pessoa). O site
+    /// usa para mostrar "Já está nos seus baralhos." em vez de deixar copiar de novo.
+    /// </summary>
+    public Guid? SourceDeckId { get; set; }
     public IEnumerable<CardResponseDto> Cards { get; set; } = new List<CardResponseDto>();
 }
