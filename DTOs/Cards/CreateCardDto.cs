@@ -18,4 +18,23 @@ public class CreateCardDto
     public string? VoiceNotes { get; set; }
 
     public int DisplayOrder { get; set; } = 0;
+
+    // Acertos e erros que a ficha já tinha no aparelho. O site os envia quando a
+    // pessoa leva para a conta um baralho que estudou sem login, para o histórico
+    // não recomeçar do zero. Sem eles, a ficha nasce sem estudo.
+
+    [Range(0, 100000, ErrorMessage = "A quantidade de acertos precisa estar entre 0 e 100000.")]
+    public int CorrectCount { get; set; } = 0;
+
+    [Range(0, 100000, ErrorMessage = "A quantidade de erros precisa estar entre 0 e 100000.")]
+    public int IncorrectCount { get; set; } = 0;
+
+    public DateTime? LastAnsweredAt { get; set; }
+
+    public bool? LastWasCorrect { get; set; }
+
+    [Range(0, 6, ErrorMessage = "O nível de revisão precisa estar entre 0 e 6.")]
+    public int? ReviewLevel { get; set; }
+
+    public DateTime? NextReviewAt { get; set; }
 }

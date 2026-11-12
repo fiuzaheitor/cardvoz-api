@@ -51,6 +51,13 @@ public class User
     /// </summary>
     public bool IsAdmin { get; set; }
 
+    /// <summary>
+    /// Quando o e-mail foi confirmado (link do e-mail, Google ou "Esqueci minha senha").
+    /// Nulo = não confirmado. Não é obrigatório para usar o CardVoz; é o que permite
+    /// juntar com segurança a conta com senha e a do Google do mesmo e-mail.
+    /// </summary>
+    public DateTime? EmailConfirmedAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? UpdatedAt { get; set; }

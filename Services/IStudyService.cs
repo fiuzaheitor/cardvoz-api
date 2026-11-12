@@ -11,5 +11,6 @@ public interface IStudyService
     Task<StudyReviewResponseDto?> RecordReviewAsync(Guid userId, Guid sessionId, RecordReviewDto dto);
     Task<StudySessionResponseDto?> FinishSessionAsync(Guid userId, Guid sessionId);
     Task<StudySessionResponseDto?> GetSessionByIdAsync(Guid userId, Guid sessionId);
+    Task<(DTOs.Decks.CreateOutcome Outcome, StudySessionResponseDto? Session)> CompleteSessionAsync(Guid userId, CompleteSessionDto dto);
     Task<IEnumerable<StudySessionResponseDto>> GetHistoryAsync(Guid userId, Guid? deckId = null, int limit = 20);
 }

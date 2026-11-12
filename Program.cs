@@ -209,6 +209,11 @@ builder.Services.AddScoped<IDeckService, DeckService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IStudyService, StudyService>();
+builder.Services.AddScoped<AccountService>();
+builder.Services.AddSingleton(EmailSettings.FromConfiguration(builder.Configuration));
+builder.Services.AddScoped<EmailSender>();
+builder.Services.AddScoped<PasswordResetService>();
+builder.Services.AddScoped<EmailConfirmationService>();
 
 var app = builder.Build();
 

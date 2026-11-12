@@ -1,5 +1,7 @@
 # Tarefa: guardar o idioma das fichas na conta
 
+> **Situação (12/11/2026):** implementada na branch `feat/revisao-espacada` (seção 3 inteira, inclusive baralhos compartilhados e cópia). O site 0.10.0 envia e lê os campos.
+
 **Repositórios:** `cardvoz-db` (migration) e `cardvoz-api` (modelo, DTOs e rotas)
 **Depende de:** nada. O site (versão 0.8.0) já tem o "Idioma das fichas", mas guarda só no aparelho.
 

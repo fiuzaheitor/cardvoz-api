@@ -139,15 +139,24 @@ public class AuthService : IAuthService
                     Email = email,
                     GoogleSubject = identity.Subject,
                     CreatedAt = DateTime.UtcNow,
+                    // O Google já confirmou o e-mail
+                    EmailConfirmedAt = DateTime.UtcNow,
                 };
                 _context.Users.Add(user);
                 _logger.LogInformation("Usuário cadastrado pelo Google: {UserId}", user.Id);
             }
+            else if (user.GoogleSubject == null && user.EmailConfirmedAt != null)
+            {
+                // Conta com senha e e-mail confirmado: a mesma pessoa. Liga o Google a ela,
+                // e a pessoa passa a entrar dos dois jeitos na mesma conta
+                user.GoogleSubject = identity.Subject;
+                _logger.LogInformation("Google ligado à conta com senha de e-mail confirmado: {UserId}", user.Id);
+            }
             else if (user.GoogleSubject == null)
             {
-                // Não liga à conta com senha que já usa este e-mail: o cadastro com senha não
-                // confirma o e-mail, então ela pode ter sido criada por outra pessoa, que
-                // continuaria entrando com a senha dela na conta de quem entrou pelo Google
+                // E-mail não confirmado: a conta com senha pode ter sido criada por outra
+                // pessoa, que continuaria entrando com a senha dela na conta de quem entrou
+                // pelo Google. Só junta depois de confirmar o e-mail
                 return AuthResult.Fail(AuthFailure.GoogleEmailHasPasswordAccount);
             }
             else
@@ -199,6 +208,12 @@ public class AuthService : IAuthService
             return AuthResult.Fail(AuthFailure.InvalidRefreshToken);
         }
 
+        // Revogar o antigo e criar o novo na mesma transação: se o banco falhar no
+        // meio, nada muda e a pessoa pode tentar de novo com o mesmo token. Separados,
+        // o antigo ficava revogado sem existir o novo, e a próxima tentativa contava
+        // como reuso (encerrando todas as sessões da pessoa)
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
         // Revoga de forma atômica: se dois pedidos usarem o mesmo token ao mesmo
         // tempo, só um consegue a troca.
         var revoked = await _context.RefreshTokens
@@ -210,7 +225,9 @@ public class AuthService : IAuthService
         }
 
         stored.RevokedAt = now;
-        return await IssueTokensAsync(stored.User, replacing: stored);
+        var result = await IssueTokensAsync(stored.User, replacing: stored);
+        await transaction.CommitAsync();
+        return result;
     }
 
     public async Task LogoutAsync(string refreshToken)
@@ -284,6 +301,8 @@ public class AuthService : IAuthService
         Id = user.Id,
         Name = user.Name,
         Email = user.Email,
+        HasPassword = user.PasswordHash != null,
+        EmailConfirmed = user.EmailConfirmedAt != null,
         IsAdmin = user.IsAdmin,
         CreatedAt = user.CreatedAt,
     };

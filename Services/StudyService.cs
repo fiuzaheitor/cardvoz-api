@@ -1,4 +1,5 @@
 using cardvoz_api.Data;
+using cardvoz_api.DTOs.Decks;
 using cardvoz_api.DTOs.StudySessions;
 using cardvoz_api.Models;
 using Microsoft.EntityFrameworkCore;
@@ -69,7 +70,19 @@ public class StudyService : IStudyService
 
     public async Task<StudyReviewResponseDto?> RecordReviewAsync(Guid userId, Guid sessionId, RecordReviewDto dto)
     {
+        // Trava o baralho antes de ler os números da ficha: outro estudo ao mesmo
+        // tempo (outro aparelho) não pode gravar por cima desta resposta
+        var deckId = await _context.StudySessions
+            .Where(s => s.Id == sessionId && s.Deck!.UserId == userId)
+            .Select(s => (Guid?)s.DeckId)
+            .FirstOrDefaultAsync();
+        if (deckId == null)
+            return null;
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.LockDeckAsync(deckId.Value);
+
         var session = await _context.StudySessions
+            .Include(s => s.Deck)
             .FirstOrDefaultAsync(s => s.Id == sessionId && s.Deck!.UserId == userId);
         if (session == null)
             return null;
@@ -101,7 +114,13 @@ public class StudyService : IStudyService
         else
             session.IncorrectCount++;
 
+        // Resumo na própria ficha: o site mostra os acertos e erros e monta
+        // "Estudar só as que errei" sem somar o histórico inteiro
+        card.RecordAnswer(review.WasCorrect, review.AnsweredAt);
+        session.Deck!.LastStudiedAt = review.AnsweredAt;
+
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         return new StudyReviewResponseDto
         {
@@ -132,6 +151,97 @@ public class StudyService : IStudyService
         }
 
         return MapToSessionDto(session);
+    }
+
+    /// <summary>
+    /// Sessão já concluída numa chamada (feita com ou sem internet): sessão, respostas
+    /// e acertos e erros das fichas num SaveChanges só, numa transação.
+    /// </summary>
+    public async Task<(CreateOutcome Outcome, StudySessionResponseDto? Session)> CompleteSessionAsync(
+        Guid userId, CompleteSessionDto dto)
+    {
+        // Um estudo por vez em cada baralho: dois aparelhos enviando juntos leriam os
+        // mesmos números e um apagaria o outro; e o mesmo envio repetido ao mesmo tempo
+        // passaria pelos dois "já existe?" e bateria na chave primária (500)
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.LockDeckAsync(dto.DeckId);
+
+        if (dto.Id.HasValue)
+        {
+            // O mesmo pedido de novo: não cria outra sessão nem soma as respostas duas vezes
+            var existing = await _context.StudySessions
+                .AsNoTracking()
+                .Include(s => s.Deck)
+                .Include(s => s.Reviews)
+                .FirstOrDefaultAsync(s => s.Id == dto.Id.Value);
+            if (existing != null)
+            {
+                return existing.Deck?.UserId == userId
+                    ? (CreateOutcome.Existing, MapToSessionDto(existing))
+                    : (CreateOutcome.Conflict, null);
+            }
+        }
+
+        var deck = await _context.Decks
+            .Include(d => d.Cards)
+            .FirstOrDefaultAsync(d => d.Id == dto.DeckId && d.UserId == userId);
+        if (deck == null)
+            return (CreateOutcome.NotFound, null);
+
+        // Horários do aparelho; os do futuro (relógio adiantado) viram o horário do servidor
+        var now = DateTime.UtcNow;
+        DateTime Clamp(DateTime value)
+        {
+            var utc = value.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(value, DateTimeKind.Utc)
+                : value.ToUniversalTime();
+            return utc > now ? now : utc;
+        }
+
+        // Só fichas deste baralho: a ficha pode ter sido excluída em outro aparelho
+        // durante o estudo sem internet, e uma ficha de outra pessoa não pode receber resposta
+        var cards = deck.Cards.ToDictionary(c => c.Id);
+        var answers = dto.Answers.Where(a => cards.ContainsKey(a.CardId)).ToList();
+
+        var session = new StudySession
+        {
+            DeckId = deck.Id,
+            StartedAt = Clamp(dto.StartedAt),
+            CompletedAt = Clamp(dto.CompletedAt),
+            TotalCards = answers.Count,
+            CorrectCount = answers.Count(a => a.WasCorrect),
+            IncorrectCount = answers.Count(a => !a.WasCorrect)
+        };
+        if (dto.Id.HasValue)
+            session.Id = dto.Id.Value;
+
+        foreach (var answer in answers.OrderBy(a => a.AnsweredAt))
+        {
+            var answeredAt = Clamp(answer.AnsweredAt);
+            session.Reviews.Add(new StudyReview
+            {
+                StudySessionId = session.Id,
+                CardId = answer.CardId,
+                WasCorrect = answer.WasCorrect,
+                AnsweredAt = answeredAt
+            });
+            cards[answer.CardId].RecordAnswer(answer.WasCorrect, answeredAt);
+        }
+
+        // Hora em que o estudo chegou à conta (e não a do aparelho): GET /api/decks/changes
+        // compara com a hora do servidor, e uma sessão feita sem internet horas antes
+        // ficaria de fora da atualização dos outros aparelhos
+        if (answers.Count > 0)
+            deck.LastStudiedAt = now;
+
+        _context.StudySessions.Add(session);
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+
+        _logger.LogInformation("Sessão concluída recebida: ID {SessionId} com {Count} respostas", session.Id, answers.Count);
+
+        session.Deck = deck;
+        return (CreateOutcome.Created, MapToSessionDto(session));
     }
 
     public async Task<StudySessionResponseDto?> GetSessionByIdAsync(Guid userId, Guid sessionId)
