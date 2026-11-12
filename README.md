@@ -174,7 +174,7 @@ Baralho sem dono (`UserId` nulo), criado pelo painel de admin. Não aparece na l
 
 ### Painel de admin (`/api/admin`)
 Só para contas com `IsAdmin` (as demais recebem `403`). A API confere no banco a cada chamada, então tirar o admin vale na hora. O primeiro admin é definido pelo SQL Editor do Supabase (README do `cardvoz-db`); os seguintes, pelo painel. O `user` devolvido no login traz `isAdmin`.
-- `GET /api/admin/stats` - Números gerais (usuários, admins, baralhos, compartilhados, fichas, sessões)
+- `GET /api/admin/stats` - Números gerais (usuários, admins, baralhos, compartilhados, fichas, sessões) e de estudo: acertos e erros somados (`correctAnswers`, `incorrectAnswers`), fichas para revisar agora (`cardsDueNow`), pessoas que estudaram nos últimos 7 dias (`activeLast7Days`) e e-mails confirmados (`confirmedEmails`)
 - `GET /api/admin/users` - Contas, com forma de entrar (senha/Google) e número de baralhos
 - `PUT /api/admin/users/{id}/admin` - Dá ou tira o admin (`{ "isAdmin": true }`). Ninguém muda o próprio acesso (`400`)
 - `DELETE /api/admin/users/{id}` - Exclui a conta com baralhos, fichas e sessões. Ninguém exclui a própria conta (`400`)

@@ -27,7 +27,18 @@ public class AdminService : IAdminService
                 (SELECT count(*) FROM "Decks" WHERE "UserId" IS NOT NULL)::int AS "Decks",
                 (SELECT count(*) FROM "Decks" WHERE "UserId" IS NULL)::int AS "SharedDecks",
                 (SELECT count(*) FROM "Cards")::int AS "Cards",
-                (SELECT count(*) FROM "StudySessions")::int AS "StudySessions"
+                (SELECT count(*) FROM "StudySessions")::int AS "StudySessions",
+                (SELECT coalesce(sum(c."CorrectCount"), 0) FROM "Cards" c
+                    JOIN "Decks" d ON d."Id" = c."DeckId" WHERE d."UserId" IS NOT NULL)::int AS "CorrectAnswers",
+                (SELECT coalesce(sum(c."IncorrectCount"), 0) FROM "Cards" c
+                    JOIN "Decks" d ON d."Id" = c."DeckId" WHERE d."UserId" IS NOT NULL)::int AS "IncorrectAnswers",
+                (SELECT count(*) FROM "Cards" c
+                    JOIN "Decks" d ON d."Id" = c."DeckId"
+                    WHERE d."UserId" IS NOT NULL AND c."NextReviewAt" <= now())::int AS "CardsDueNow",
+                (SELECT count(DISTINCT d."UserId") FROM "StudySessions" s
+                    JOIN "Decks" d ON d."Id" = s."DeckId"
+                    WHERE coalesce(s."CompletedAt", s."StartedAt") > now() - interval '7 days')::int AS "ActiveLast7Days",
+                (SELECT count(*) FROM "Users" WHERE "EmailConfirmedAt" IS NOT NULL)::int AS "ConfirmedEmails"
             """).SingleAsync();
 
     public async Task<IEnumerable<AdminUserDto>> GetUsersAsync()
