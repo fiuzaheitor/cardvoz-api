@@ -118,6 +118,9 @@ Google, login, cadastro e renovação devolvem:
 
 Todos os IDs são UUID (texto, ex.: `"3f6c2b1e-…"`).
 
+### Saúde (`/api/health`)
+- `GET /api/health` - Sem login. Lê o banco e responde `{ "status": "ok" }` (ou `503`). A Action **Manter ativo** (`.github/workflows/manter-ativo.yml`) chama esta rota a cada 3 dias para o Supabase gratuito não pausar o projeto por falta de uso. Para mudar o endereço, crie a variável `API_HEALTH_URL` no repositório que publica a API.
+
 ### Baralhos (`/api/decks`)
 - `GET /api/decks` - Lista os baralhos da pessoa logada (suporta `?category=` e `?search=`)
 - `GET /api/decks/categories` - Lista as categorias dos baralhos da pessoa logada

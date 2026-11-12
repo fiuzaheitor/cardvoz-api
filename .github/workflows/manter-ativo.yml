@@ -1,0 +1,25 @@
+name: Manter ativo
+
+# O Supabase do plano gratuito pausa o projeto depois de uns 7 dias sem uso, e o
+# Render "adormece" a API. A cada 3 dias, esta Action chama /api/health, que lê
+# o banco: conta como uso e evita a pausa em férias e feriados.
+# Endereço: variável do repositório API_HEALTH_URL (Settings → Secrets and
+# variables → Actions → Variables); sem ela, usa o endereço publicado.
+# Atenção: o GitHub desliga Actions agendadas de repositórios sem commits há 60
+# dias; se isso acontecer, reative na aba Actions.
+on:
+  schedule:
+    - cron: "17 12 */3 * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Chamar /api/health
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chamar a API (com espera para ela acordar)
+        env:
+          API_HEALTH_URL: ${{ vars.API_HEALTH_URL || 'https://cardvoz-api.onrender.com/api/health' }}
+        run: |
+          curl --fail --silent --show-error --max-time 120 \
+            --retry 4 --retry-delay 30 --retry-all-errors "$API_HEALTH_URL"
