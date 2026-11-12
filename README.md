@@ -124,6 +124,13 @@ Todos os IDs são UUID (texto, ex.: `"3f6c2b1e-…"`).
 - `POST /api/auth/forgot-password` - `{ "email" }`. Se o e-mail tiver conta, manda um link com código de uso único, válido por 1 hora (só o hash fica no banco; um e-mail por minuto por conta). A resposta é sempre a mesma, para não revelar quais e-mails têm conta. Sem SMTP configurado, `503`. Serve também para quem entra só com o Google criar uma senha
 - `POST /api/auth/reset-password` - `{ "token", "password" }`. Troca a senha, zera o bloqueio por tentativas e encerra as sessões abertas (`204`). Código usado ou vencido: `400`
 
+### Confirmação de e-mail (`/api/auth`)
+- O cadastro com senha manda um link de confirmação (`SITE_URL/confirmar-email/#codigo=...`, uso único, 24 horas), se o SMTP estiver configurado. Confirmar **não é obrigatório** para usar o CardVoz.
+- `POST /api/auth/confirm-email` - `{ "token" }`. Confirma (`204`); código usado ou vencido: `400`
+- `POST /api/auth/resend-confirmation` - Com login. Manda o link de novo (`200`); já confirmado: `409`; menos de 1 minuto desde o último: `429`; sem SMTP: `503`
+- Contas criadas pelo Google e quem cria senha pelo link de "Esqueci minha senha" ficam confirmadas. O `user` devolvido no login traz `emailConfirmed`.
+- **Junção com o Google:** se a conta com senha tiver o e-mail confirmado, entrar com o Google no mesmo e-mail liga o Google a essa conta (a pessoa entra dos dois jeitos). Sem confirmar, a API responde `409` pedindo para confirmar o e-mail no Perfil.
+
 ### Conta (`/api/account`)
 Direitos da pessoa sobre os próprios dados (LGPD).
 - `GET /api/account/export` - Tudo o que a conta guarda em JSON: dados da conta, baralhos com fichas (acertos, erros, revisão) e histórico de estudo. Sem hash de senha nem tokens
@@ -189,7 +196,7 @@ Só para contas com `IsAdmin` (as demais recebem `403`). A API confere no banco 
 dotnet test tests/cardvoz-api.Tests
 ```
 
-Testes em xUnit com banco em memória (`tests/cardvoz-api.Tests/`): revisão espaçada (`Card.RecordAnswer`), importação sem duplicar, sessão completa, exclusão e exportação da conta, e as regras de Google e e-mail. Rodam no GitHub Actions em todo PR, e o deploy só acontece se passarem. O projeto da API ignora a pasta `tests/` (não vai para a imagem Docker).
+Testes em xUnit com SQLite em memória (`tests/cardvoz-api.Tests/`; relacional como o PostgreSQL, sem precisar de servidor): revisão espaçada (`Card.RecordAnswer`), importação sem duplicar, sessão completa, exclusão e exportação da conta, confirmação de e-mail, junção com o Google e as regras de Google e e-mail. Rodam no GitHub Actions em todo PR, e o deploy só acontece se passarem. O projeto da API ignora a pasta `tests/` (não vai para a imagem Docker).
 
 ---
 

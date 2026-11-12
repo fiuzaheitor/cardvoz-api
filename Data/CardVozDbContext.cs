@@ -12,6 +12,7 @@ public class CardVozDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<EmailConfirmationToken> EmailConfirmationTokens => Set<EmailConfirmationToken>();
     public DbSet<Deck> Decks => Set<Deck>();
     public DbSet<Card> Cards => Set<Card>();
     public DbSet<StudySession> StudySessions => Set<StudySession>();
@@ -59,6 +60,19 @@ public class CardVozDbContext : DbContext
 
         // Códigos de "Esqueci minha senha" (só o hash)
         modelBuilder.Entity<PasswordResetToken>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.HasIndex(t => t.TokenHash).IsUnique();
+            entity.Property(t => t.TokenHash).IsRequired().HasMaxLength(64);
+
+            entity.HasOne(t => t.User)
+                .WithMany()
+                .HasForeignKey(t => t.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Códigos de confirmação de e-mail (só o hash)
+        modelBuilder.Entity<EmailConfirmationToken>(entity =>
         {
             entity.HasKey(t => t.Id);
             entity.HasIndex(t => t.TokenHash).IsUnique();

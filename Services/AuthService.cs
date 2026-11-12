@@ -139,15 +139,24 @@ public class AuthService : IAuthService
                     Email = email,
                     GoogleSubject = identity.Subject,
                     CreatedAt = DateTime.UtcNow,
+                    // O Google já confirmou o e-mail
+                    EmailConfirmedAt = DateTime.UtcNow,
                 };
                 _context.Users.Add(user);
                 _logger.LogInformation("Usuário cadastrado pelo Google: {UserId}", user.Id);
             }
+            else if (user.GoogleSubject == null && user.EmailConfirmedAt != null)
+            {
+                // Conta com senha e e-mail confirmado: a mesma pessoa. Liga o Google a ela,
+                // e a pessoa passa a entrar dos dois jeitos na mesma conta
+                user.GoogleSubject = identity.Subject;
+                _logger.LogInformation("Google ligado à conta com senha de e-mail confirmado: {UserId}", user.Id);
+            }
             else if (user.GoogleSubject == null)
             {
-                // Não liga à conta com senha que já usa este e-mail: o cadastro com senha não
-                // confirma o e-mail, então ela pode ter sido criada por outra pessoa, que
-                // continuaria entrando com a senha dela na conta de quem entrou pelo Google
+                // E-mail não confirmado: a conta com senha pode ter sido criada por outra
+                // pessoa, que continuaria entrando com a senha dela na conta de quem entrou
+                // pelo Google. Só junta depois de confirmar o e-mail
                 return AuthResult.Fail(AuthFailure.GoogleEmailHasPasswordAccount);
             }
             else
@@ -285,6 +294,7 @@ public class AuthService : IAuthService
         Name = user.Name,
         Email = user.Email,
         HasPassword = user.PasswordHash != null,
+        EmailConfirmed = user.EmailConfirmedAt != null,
         IsAdmin = user.IsAdmin,
         CreatedAt = user.CreatedAt,
     };

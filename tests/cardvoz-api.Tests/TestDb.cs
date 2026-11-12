@@ -1,18 +1,26 @@
 using cardvoz_api.Data;
 using cardvoz_api.Models;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace cardvoz_api.Tests;
 
-/// <summary>Banco em memória, um por teste, com uma pessoa e um baralho prontos.</summary>
+/// <summary>
+/// Banco SQLite em memória, um por teste. Relacional como o PostgreSQL (aceita
+/// ExecuteUpdate/ExecuteDelete, chaves estrangeiras e cascata), sem precisar de servidor.
+/// </summary>
 public static class TestDb
 {
     public static CardVozDbContext Create()
     {
+        var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
         var options = new DbContextOptionsBuilder<CardVozDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseSqlite(connection)
             .Options;
-        return new CardVozDbContext(options);
+        var db = new CardVozDbContext(options);
+        db.Database.EnsureCreated();
+        return db;
     }
 
     public static User AddUser(CardVozDbContext db, string email = "ana@exemplo.com", bool isAdmin = false)
