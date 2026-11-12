@@ -208,6 +208,12 @@ public class AuthService : IAuthService
             return AuthResult.Fail(AuthFailure.InvalidRefreshToken);
         }
 
+        // Revogar o antigo e criar o novo na mesma transação: se o banco falhar no
+        // meio, nada muda e a pessoa pode tentar de novo com o mesmo token. Separados,
+        // o antigo ficava revogado sem existir o novo, e a próxima tentativa contava
+        // como reuso (encerrando todas as sessões da pessoa)
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
         // Revoga de forma atômica: se dois pedidos usarem o mesmo token ao mesmo
         // tempo, só um consegue a troca.
         var revoked = await _context.RefreshTokens
@@ -219,7 +225,9 @@ public class AuthService : IAuthService
         }
 
         stored.RevokedAt = now;
-        return await IssueTokensAsync(stored.User, replacing: stored);
+        var result = await IssueTokensAsync(stored.User, replacing: stored);
+        await transaction.CommitAsync();
+        return result;
     }
 
     public async Task LogoutAsync(string refreshToken)

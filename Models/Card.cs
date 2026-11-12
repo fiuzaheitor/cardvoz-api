@@ -98,7 +98,13 @@ public class Card
         CorrectCount = Math.Max(0, correctCount);
         IncorrectCount = Math.Max(0, incorrectCount);
         var complete = lastAnsweredAt.HasValue && lastWasCorrect.HasValue;
-        LastAnsweredAt = complete ? lastAnsweredAt!.Value.ToUniversalTime() : null;
+        // Relógio do aparelho adiantado: uma "última resposta" no futuro faria os
+        // estudos seguintes (com a hora certa) parecerem mais antigos, e a revisão
+        // da ficha não andaria até passar essa data. Igual ao Clamp do /complete
+        var now = DateTime.UtcNow;
+        var answeredAt = lastAnsweredAt?.ToUniversalTime();
+        if (answeredAt > now) answeredAt = now;
+        LastAnsweredAt = complete ? answeredAt : null;
         LastWasCorrect = complete ? lastWasCorrect : null;
         if (!complete)
         {
@@ -111,7 +117,10 @@ public class Card
         var level = reviewLevel ?? (lastWasCorrect!.Value ? 1 : 0);
         ReviewLevel = (short)Math.Clamp(level, 0, MaxReviewLevel);
         if (!lastWasCorrect!.Value) ReviewLevel = 0;
-        NextReviewAt = nextReviewAt?.ToUniversalTime() ?? LastAnsweredAt + ReviewIntervals[ReviewLevel];
+        // A próxima revisão não passa do intervalo do nível contado da última resposta
+        var limit = LastAnsweredAt!.Value + ReviewIntervals[ReviewLevel];
+        var next = nextReviewAt?.ToUniversalTime();
+        NextReviewAt = next.HasValue && next.Value < limit ? next.Value : limit;
     }
 
     [JsonIgnore]
