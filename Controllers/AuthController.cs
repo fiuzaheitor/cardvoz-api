@@ -131,6 +131,43 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// "Esqueci minha senha": manda um link por e-mail se o e-mail tiver conta. A
+    /// resposta é sempre a mesma, para a rota não revelar quais e-mails têm conta.
+    /// </summary>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto, [FromServices] PasswordResetService resets)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+        if (!resets.IsConfigured)
+            return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                new { message = "O envio de e-mail ainda não está configurado. Peça ajuda à equipe do CardVoz." });
+
+        await resets.RequestAsync(dto.Email);
+        return Ok(new { message = "Se este e-mail tiver conta no CardVoz, enviamos um link para criar uma nova senha. Confira a caixa de entrada e o spam." });
+    }
+
+    /// <summary>Troca a senha com o código do link (uso único, 1 hora) e encerra as sessões abertas.</summary>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto, [FromServices] PasswordResetService resets)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        return await resets.ResetAsync(dto.Token, dto.Password)
+            ? NoContent()
+            : BadRequest(new { message = "Este link não vale mais: ele já foi usado ou passou de 1 hora. Peça um novo em \"Esqueci minha senha\"." });
+    }
+
+    /// <summary>
     /// Troca um token de renovação válido por um novo par de tokens. O token usado deixa de valer.
     /// </summary>
     [HttpPost("refresh")]

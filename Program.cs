@@ -210,6 +210,8 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IStudyService, StudyService>();
 builder.Services.AddScoped<AccountService>();
+builder.Services.AddSingleton(EmailSettings.FromConfiguration(builder.Configuration));
+builder.Services.AddScoped<PasswordResetService>();
 
 var app = builder.Build();
 

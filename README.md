@@ -110,6 +110,8 @@ Google, login, cadastro e renovação devolvem:
 | `CORS_ALLOWED_ORIGINS` | Em produção | Endereços do site e do painel de admin, separados por vírgula e sem barra no final |
 | `GOOGLE_CLIENT_ID` | Para o login com Google | ID do cliente OAuth (o mesmo do `NEXT_PUBLIC_GOOGLE_CLIENT_ID` do site). Passo a passo no README do CardVoz, seção "Login com Google" |
 | `GOOGLE_CLIENT_SECRET` | Para o login com Google | Segredo do cliente OAuth. Nunca vai para o site nem para o repositório |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Para "Esqueci minha senha" | Servidor de e-mail (Gmail com senha de app, Brevo, Resend...). Porta 587 com STARTTLS (a 465 não funciona). `SMTP_FROM` = remetente, ex.: `CardVoz <nao-responda@seudominio>`. Sem eles, a rota responde 503 |
+| `SITE_URL` | Para "Esqueci minha senha" | Endereço do site, sem barra no final (ex.: `https://cardvoz.onrender.com`). O link do e-mail é `SITE_URL/redefinir-senha/#codigo=...` |
 | `JWT_ISSUER`, `JWT_AUDIENCE` | Não | Padrão: `cardvoz-api` e `cardvoz` |
 
 ---
@@ -117,6 +119,10 @@ Google, login, cadastro e renovação devolvem:
 ## 📋 Endpoints Principais
 
 Todos os IDs são UUID (texto, ex.: `"3f6c2b1e-…"`).
+
+### Senha esquecida (`/api/auth`)
+- `POST /api/auth/forgot-password` - `{ "email" }`. Se o e-mail tiver conta, manda um link com código de uso único, válido por 1 hora (só o hash fica no banco; um e-mail por minuto por conta). A resposta é sempre a mesma, para não revelar quais e-mails têm conta. Sem SMTP configurado, `503`. Serve também para quem entra só com o Google criar uma senha
+- `POST /api/auth/reset-password` - `{ "token", "password" }`. Troca a senha, zera o bloqueio por tentativas e encerra as sessões abertas (`204`). Código usado ou vencido: `400`
 
 ### Conta (`/api/account`)
 Direitos da pessoa sobre os próprios dados (LGPD).
