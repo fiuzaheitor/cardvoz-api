@@ -50,6 +50,8 @@ public class DeckService : IDeckService
                 CardCount = d.Cards.Count,
                 CreatedAt = d.CreatedAt,
                 UpdatedAt = d.UpdatedAt,
+                QuestionLanguage = d.QuestionLanguage,
+                AnswerLanguage = d.AnswerLanguage,
                 LastStudiedAt = d.LastStudiedAt,
                 SourceDeckId = d.SourceDeckId
             })
@@ -98,6 +100,8 @@ public class DeckService : IDeckService
             Slug = slug,
             Category = dto.Category.Trim(),
             Description = dto.Description?.Trim(),
+            QuestionLanguage = Language(dto.QuestionLanguage),
+            AnswerLanguage = Language(dto.AnswerLanguage),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -115,7 +119,9 @@ public class DeckService : IDeckService
             Description = deck.Description,
             CardCount = 0,
             CreatedAt = deck.CreatedAt,
-            UpdatedAt = deck.UpdatedAt
+            UpdatedAt = deck.UpdatedAt,
+            QuestionLanguage = deck.QuestionLanguage,
+            AnswerLanguage = deck.AnswerLanguage
         };
     }
 
@@ -148,6 +154,8 @@ public class DeckService : IDeckService
             Slug = await EnsureUniqueSlugAsync(userId, GenerateSlug(dto.Title)),
             Category = dto.Category.Trim(),
             Description = dto.Description?.Trim(),
+            QuestionLanguage = Language(dto.QuestionLanguage),
+            AnswerLanguage = Language(dto.AnswerLanguage),
             CreatedAt = now
         };
         if (dto.Id.HasValue)
@@ -212,6 +220,9 @@ public class DeckService : IDeckService
         };
     }
 
+    /// <summary>Código de idioma já validado pelo DTO; vazio = português (nulo).</summary>
+    private static string? Language(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
     private static List<Card> NewCards(Guid deckId, IEnumerable<ImportCardDto> cards, int startOrder, DateTime now)
     {
         return cards.Select((c, i) =>
@@ -246,6 +257,12 @@ public class DeckService : IDeckService
         if (dto.Description != null)
             deck.Description = dto.Description.Trim();
 
+        // Ausente ou nulo: não muda. Texto vazio: volta para português (nulo)
+        if (dto.QuestionLanguage != null)
+            deck.QuestionLanguage = Language(dto.QuestionLanguage);
+        if (dto.AnswerLanguage != null)
+            deck.AnswerLanguage = Language(dto.AnswerLanguage);
+
         if (!string.IsNullOrWhiteSpace(dto.Slug))
         {
             var newSlug = GenerateSlug(dto.Slug);
@@ -271,6 +288,8 @@ public class DeckService : IDeckService
             CardCount = deck.Cards.Count,
             CreatedAt = deck.CreatedAt,
             UpdatedAt = deck.UpdatedAt,
+            QuestionLanguage = deck.QuestionLanguage,
+            AnswerLanguage = deck.AnswerLanguage,
             SourceDeckId = deck.SourceDeckId
         };
     }
@@ -321,7 +340,9 @@ public class DeckService : IDeckService
                 Description = d.Description,
                 CardCount = d.Cards.Count,
                 CreatedAt = d.CreatedAt,
-                UpdatedAt = d.UpdatedAt
+                UpdatedAt = d.UpdatedAt,
+                QuestionLanguage = d.QuestionLanguage,
+                AnswerLanguage = d.AnswerLanguage
             })
             .ToListAsync();
     }
@@ -346,6 +367,8 @@ public class DeckService : IDeckService
             Slug = GenerateSlug(dto.Title),
             Category = SharedCategory,
             Description = dto.Description?.Trim(),
+            QuestionLanguage = Language(dto.QuestionLanguage),
+            AnswerLanguage = Language(dto.AnswerLanguage),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -368,6 +391,8 @@ public class DeckService : IDeckService
         deck.Title = dto.Title.Trim();
         deck.Slug = GenerateSlug(dto.Title);
         deck.Description = dto.Description?.Trim();
+        deck.QuestionLanguage = Language(dto.QuestionLanguage);
+        deck.AnswerLanguage = Language(dto.AnswerLanguage);
         deck.UpdatedAt = DateTime.UtcNow;
 
         // As fichas são substituídas: as cópias já feitas são independentes e não mudam
@@ -404,6 +429,8 @@ public class DeckService : IDeckService
             Category = shared.Category,
             Description = shared.Description,
             SourceDeckId = shared.Id,
+            QuestionLanguage = shared.QuestionLanguage,
+            AnswerLanguage = shared.AnswerLanguage,
             CreatedAt = now
         };
 
@@ -445,6 +472,8 @@ public class DeckService : IDeckService
         CardCount = cardCount,
         CreatedAt = deck.CreatedAt,
         UpdatedAt = deck.UpdatedAt,
+        QuestionLanguage = deck.QuestionLanguage,
+        AnswerLanguage = deck.AnswerLanguage,
         LastStudiedAt = deck.LastStudiedAt,
         SourceDeckId = deck.SourceDeckId
     };
@@ -459,6 +488,8 @@ public class DeckService : IDeckService
         CardCount = deck.Cards.Count,
         CreatedAt = deck.CreatedAt,
         UpdatedAt = deck.UpdatedAt,
+        QuestionLanguage = deck.QuestionLanguage,
+        AnswerLanguage = deck.AnswerLanguage,
         LastStudiedAt = deck.LastStudiedAt,
         Cards = deck.Cards.Select(c => new CardResponseDto
         {

@@ -164,7 +164,7 @@ Só para contas com `IsAdmin` (as demais recebem `403`). A API confere no banco 
 - `DELETE /api/admin/shared-decks/{id}` - Exclui. As cópias já feitas continuam com quem copiou
 
 ### Pedidos em andamento
-- **Idioma das fichas**: guardar o idioma das perguntas e das respostas no baralho ([`docs/tarefas/idioma-das-fichas.md`](docs/tarefas/idioma-das-fichas.md)). A migration já está na `main` do `cardvoz-db` e precisa estar aplicada no Supabase antes de publicar a API com os campos novos.
+- **Idioma das fichas**: baralhos devolvem e aceitam `questionLanguage` e `answerLanguage` (código como `en`, `es` ou `pt-BR`; nulo = português; no `PUT`, texto vazio volta para português). Também nos baralhos compartilhados e nas cópias ([`docs/tarefas/idioma-das-fichas.md`](docs/tarefas/idioma-das-fichas.md)).
 - **Menos chamadas (parte 4 do modo sem login)** e **acertos e erros das fichas**: implementados juntos na branch `feat/estatisticas-das-fichas` ([`docs/tarefas/parte-4-menos-chamadas.md`](docs/tarefas/parte-4-menos-chamadas.md) e [`docs/tarefas/estatisticas-das-fichas.md`](docs/tarefas/estatisticas-das-fichas.md)). Precisam da migration `20261111000000_estatisticas_das_fichas.sql` do `cardvoz-db` aplicada antes de publicar.
 
 ---

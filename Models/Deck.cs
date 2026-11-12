@@ -45,6 +45,17 @@ public class Deck
     public DateTime? UpdatedAt { get; set; }
 
     /// <summary>
+    /// Idioma das perguntas e das respostas (ex.: "en"), para o leitor de tela trocar a
+    /// voz. Nulo = português. O banco só aceita código de idioma (CHECK), porque o valor
+    /// vai para um atributo HTML.
+    /// </summary>
+    [MaxLength(10)]
+    public string? QuestionLanguage { get; set; }
+
+    [MaxLength(10)]
+    public string? AnswerLanguage { get; set; }
+
+    /// <summary>
     /// Última vez que um estudo do baralho chegou à conta (hora do servidor). Estudar
     /// não muda o UpdatedAt, então o site compara este valor para saber que os acertos
     /// e erros das fichas mudaram.

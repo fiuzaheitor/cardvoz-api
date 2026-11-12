@@ -13,6 +13,12 @@ public class DeckDetailResponseDto
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
+    /// <summary>Idioma das perguntas (ex.: "en"). Nulo = português (fica fora do JSON).</summary>
+    public string? QuestionLanguage { get; set; }
+
+    /// <summary>Idioma das respostas. Nulo = português.</summary>
+    public string? AnswerLanguage { get; set; }
+
     /// <summary>Última vez que o baralho foi estudado (nulo = nunca).</summary>
     public DateTime? LastStudiedAt { get; set; }
     public IEnumerable<CardResponseDto> Cards { get; set; } = new List<CardResponseDto>();
