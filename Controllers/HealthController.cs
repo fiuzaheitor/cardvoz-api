@@ -7,8 +7,9 @@ namespace cardvoz_api.Controllers;
 
 /// <summary>
 /// Confere se a API e o banco respondem, sem login. A Action "Manter ativo" chama
-/// esta rota a cada 3 dias: a consulta ao banco conta como uso, e o Supabase do
-/// plano gratuito não pausa o projeto por falta de atividade.
+/// esta rota a cada 10 minutos: mantém o Render acordado (sem a espera de até 1
+/// minuto na primeira chamada) e a consulta ao banco conta como uso, para o
+/// Supabase do plano gratuito não pausar o projeto por falta de atividade.
 /// </summary>
 [ApiController]
 [AllowAnonymous]
