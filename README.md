@@ -183,6 +183,16 @@ Só para contas com `IsAdmin` (as demais recebem `403`). A API confere no banco 
 
 ---
 
+## 🧪 Testes
+
+```bash
+dotnet test tests/cardvoz-api.Tests
+```
+
+Testes em xUnit com banco em memória (`tests/cardvoz-api.Tests/`): revisão espaçada (`Card.RecordAnswer`), importação sem duplicar, sessão completa, exclusão e exportação da conta, e as regras de Google e e-mail. Rodam no GitHub Actions em todo PR, e o deploy só acontece se passarem. O projeto da API ignora a pasta `tests/` (não vai para a imagem Docker).
+
+---
+
 ## 🤝 Para quem continua o projeto
 
 - Leia o [`AGENTS.md`](AGENTS.md): arquitetura, regras de segurança, como mudar o banco e os combinados da equipe. Vale para quem usa ou não ferramentas de IA (o `CLAUDE.md` só aponta para ele).

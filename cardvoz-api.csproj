@@ -9,6 +9,13 @@
     <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
+  <!-- Os testes têm projeto próprio (tests/): fora do build e da imagem da API -->
+  <ItemGroup>
+    <Compile Remove="tests/**" />
+    <Content Remove="tests/**" />
+    <None Remove="tests/**" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
     <PackageReference Include="Google.Apis.Auth" Version="1.77.0" />

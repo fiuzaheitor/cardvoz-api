@@ -14,8 +14,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  testes:
+    name: Testes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+      - run: dotnet test tests/cardvoz-api.Tests
+
   build:
     name: Build da imagem Docker
+    needs: testes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
