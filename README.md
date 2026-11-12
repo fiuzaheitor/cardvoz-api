@@ -118,6 +118,11 @@ Google, login, cadastro e renovação devolvem:
 
 Todos os IDs são UUID (texto, ex.: `"3f6c2b1e-…"`).
 
+### Conta (`/api/account`)
+Direitos da pessoa sobre os próprios dados (LGPD).
+- `GET /api/account/export` - Tudo o que a conta guarda em JSON: dados da conta, baralhos com fichas (acertos, erros, revisão) e histórico de estudo. Sem hash de senha nem tokens
+- `POST /api/account/delete` - Exclui a conta com baralhos, fichas, sessões e tokens. Pede `confirmEmail` (o e-mail da conta) e, em conta com senha, `password`. Única pessoa admin recebe `409`. Limite de 10 por minuto por IP
+
 ### Saúde (`/api/health`)
 - `GET /api/health` - Sem login. Lê o banco e responde `{ "status": "ok" }` (ou `503`). A Action **Manter ativo** (`.github/workflows/manter-ativo.yml`) chama esta rota a cada 3 dias para o Supabase gratuito não pausar o projeto por falta de uso. Para mudar o endereço, crie a variável `API_HEALTH_URL` no repositório que publica a API.
 

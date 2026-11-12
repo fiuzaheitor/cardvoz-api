@@ -209,6 +209,7 @@ builder.Services.AddScoped<IDeckService, DeckService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IStudyService, StudyService>();
+builder.Services.AddScoped<AccountService>();
 
 var app = builder.Build();
 
