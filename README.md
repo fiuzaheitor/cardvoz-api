@@ -130,7 +130,7 @@ Direitos da pessoa sobre os próprios dados (LGPD).
 - `POST /api/account/delete` - Exclui a conta com baralhos, fichas, sessões e tokens. Pede `confirmEmail` (o e-mail da conta) e, em conta com senha, `password`. Única pessoa admin recebe `409`. Limite de 10 por minuto por IP
 
 ### Saúde (`/api/health`)
-- `GET /api/health` - Sem login. Lê o banco e responde `{ "status": "ok" }` (ou `503`). A Action **Manter ativo** (`.github/workflows/manter-ativo.yml`) chama esta rota a cada 3 dias para o Supabase gratuito não pausar o projeto por falta de uso. Para mudar o endereço, crie a variável `API_HEALTH_URL` no repositório que publica a API.
+- `GET /api/health` - Sem login. Lê o banco e responde `{ "status": "ok" }` (ou `503`). A Action **Manter ativo** (`.github/workflows/manter-ativo.yml`) chama esta rota a cada 10 minutos: a API não "adormece" no Render (sem a espera de até 1 minuto ao abrir o site) e o Supabase gratuito não pausa por falta de uso. Usa cerca de 730 das 750 horas gratuitas mensais da conta do Render. Para mudar o endereço, crie a variável `API_HEALTH_URL` no repositório que publica a API.
 
 ### Baralhos (`/api/decks`)
 - `GET /api/decks` - Lista os baralhos da pessoa logada (suporta `?category=` e `?search=`)
