@@ -16,6 +16,11 @@ public interface IDeckService
     Task<bool> DeleteAsync(Guid userId, Guid id);
     Task<IEnumerable<string>> GetCategoriesAsync(Guid userId);
 
+    // Menos chamadas (parte 4 do modo sem login): um pedido no lugar de muitos
+    Task<(CreateOutcome Outcome, DeckDetailResponseDto? Deck)> ImportAsync(Guid userId, ImportDeckDto dto);
+    Task<DeckDetailResponseDto?> AddCardsBatchAsync(Guid userId, Guid deckId, BatchCardsDto dto);
+    Task<DeckChangesDto> GetChangesAsync(Guid userId, DateTime? since);
+
     // Baralhos compartilhados (sem dono): o admin gerencia; cada pessoa copia para os seus
     Task<IEnumerable<DeckResponseDto>> GetSharedAsync();
     Task<DeckDetailResponseDto?> GetSharedByIdAsync(Guid id);

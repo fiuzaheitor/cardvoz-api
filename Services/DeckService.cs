@@ -50,6 +50,7 @@ public class DeckService : IDeckService
                 CardCount = d.Cards.Count,
                 CreatedAt = d.CreatedAt,
                 UpdatedAt = d.UpdatedAt,
+                LastStudiedAt = d.LastStudiedAt,
                 SourceDeckId = d.SourceDeckId
             })
             .ToListAsync();
@@ -116,6 +117,116 @@ public class DeckService : IDeckService
             CreatedAt = deck.CreatedAt,
             UpdatedAt = deck.UpdatedAt
         };
+    }
+
+    /// <summary>
+    /// Baralho e fichas num SaveChanges só: o EF grava tudo numa transação, então
+    /// ou o baralho chega inteiro ou nada é salvo.
+    /// </summary>
+    public async Task<(CreateOutcome Outcome, DeckDetailResponseDto? Deck)> ImportAsync(Guid userId, ImportDeckDto dto)
+    {
+        if (dto.Id.HasValue)
+        {
+            // O mesmo pedido de novo (a resposta anterior se perdeu): devolve o que já foi salvo
+            var existing = await _context.Decks
+                .AsNoTracking()
+                .Include(d => d.Cards.OrderBy(c => c.DisplayOrder).ThenBy(c => c.CreatedAt))
+                .FirstOrDefaultAsync(d => d.Id == dto.Id.Value);
+            if (existing != null)
+            {
+                return existing.UserId == userId
+                    ? (CreateOutcome.Existing, ToDetail(existing))
+                    : (CreateOutcome.Conflict, null);
+            }
+        }
+
+        var now = DateTime.UtcNow;
+        var deck = new Deck
+        {
+            UserId = userId,
+            Title = dto.Title.Trim(),
+            Slug = await EnsureUniqueSlugAsync(userId, GenerateSlug(dto.Title)),
+            Category = dto.Category.Trim(),
+            Description = dto.Description?.Trim(),
+            CreatedAt = now
+        };
+        if (dto.Id.HasValue)
+            deck.Id = dto.Id.Value;
+
+        deck.Cards = NewCards(deck.Id, dto.Cards, 1, now);
+        _context.Decks.Add(deck);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Baralho importado: ID {Id} com {Count} fichas", deck.Id, deck.Cards.Count);
+        return (CreateOutcome.Created, ToDetail(deck));
+    }
+
+    /// <summary>Várias fichas no fim de um baralho que já existe, numa transação.</summary>
+    public async Task<DeckDetailResponseDto?> AddCardsBatchAsync(Guid userId, Guid deckId, BatchCardsDto dto)
+    {
+        var deck = await _context.Decks
+            .Include(d => d.Cards)
+            .FirstOrDefaultAsync(d => d.Id == deckId && d.UserId == userId);
+        if (deck == null)
+            return null;
+
+        var now = DateTime.UtcNow;
+        var start = deck.Cards.Select(c => c.DisplayOrder).DefaultIfEmpty(0).Max() + 1;
+        _context.Cards.AddRange(NewCards(deck.Id, dto.Cards, start, now));
+        deck.UpdatedAt = now;
+        await _context.SaveChangesAsync();
+
+        deck.Cards = deck.Cards.OrderBy(c => c.DisplayOrder).ThenBy(c => c.CreatedAt).ToList();
+        return ToDetail(deck);
+    }
+
+    /// <summary>
+    /// Baralhos criados, alterados ou estudados depois de "since", com as fichas, e os
+    /// ids de todos (o banco não guarda exclusões). O site atualiza as cópias do
+    /// aparelho com uma chamada só.
+    /// </summary>
+    public async Task<DeckChangesDto> GetChangesAsync(Guid userId, DateTime? since)
+    {
+        var serverTime = DateTime.UtcNow;
+        var own = _context.Decks.AsNoTracking().Where(d => d.UserId == userId);
+
+        var changed = own;
+        if (since.HasValue)
+        {
+            // Folga: o que foi gravado no mesmo instante da consulta anterior pode ter
+            // horário um pouco antes do serverTime devolvido. Um baralho a mais não faz mal.
+            var from = since.Value.ToUniversalTime().AddSeconds(-5);
+            changed = own.Where(d => d.CreatedAt > from || d.UpdatedAt > from || d.LastStudiedAt > from);
+        }
+
+        var decks = await changed
+            .Include(d => d.Cards.OrderBy(c => c.DisplayOrder).ThenBy(c => c.CreatedAt))
+            .AsSplitQuery()
+            .ToListAsync();
+
+        return new DeckChangesDto
+        {
+            Decks = decks.Select(ToDetail).ToList(),
+            AllIds = await own.Select(d => d.Id).ToListAsync(),
+            ServerTime = serverTime
+        };
+    }
+
+    private static List<Card> NewCards(Guid deckId, IEnumerable<ImportCardDto> cards, int startOrder, DateTime now)
+    {
+        return cards.Select((c, i) =>
+        {
+            var card = new Card
+            {
+                DeckId = deckId,
+                Question = c.Question.Trim(),
+                Answer = c.Answer.Trim(),
+                DisplayOrder = startOrder + i,
+                CreatedAt = now
+            };
+            card.SetHistory(c.CorrectCount, c.IncorrectCount, c.LastAnsweredAt, c.LastWasCorrect);
+            return card;
+        }).ToList();
     }
 
     public async Task<DeckResponseDto?> UpdateAsync(Guid userId, Guid id, UpdateDeckDto dto)
@@ -334,6 +445,7 @@ public class DeckService : IDeckService
         CardCount = cardCount,
         CreatedAt = deck.CreatedAt,
         UpdatedAt = deck.UpdatedAt,
+        LastStudiedAt = deck.LastStudiedAt,
         SourceDeckId = deck.SourceDeckId
     };
 
@@ -347,6 +459,7 @@ public class DeckService : IDeckService
         CardCount = deck.Cards.Count,
         CreatedAt = deck.CreatedAt,
         UpdatedAt = deck.UpdatedAt,
+        LastStudiedAt = deck.LastStudiedAt,
         Cards = deck.Cards.Select(c => new CardResponseDto
         {
             Id = c.Id,
@@ -355,7 +468,11 @@ public class DeckService : IDeckService
             Answer = c.Answer,
             VoiceNotes = c.VoiceNotes,
             DisplayOrder = c.DisplayOrder,
-            CreatedAt = c.CreatedAt
+            CreatedAt = c.CreatedAt,
+            CorrectCount = c.CorrectCount,
+            IncorrectCount = c.IncorrectCount,
+            LastAnsweredAt = c.LastAnsweredAt,
+            LastWasCorrect = c.LastWasCorrect
         }).ToList()
     };
 
@@ -381,12 +498,18 @@ public class DeckService : IDeckService
         return string.IsNullOrWhiteSpace(clean) ? "deck" : clean;
     }
 
+    /// <summary>
+    /// Endereços fixos de /api/decks/...: um baralho com esse slug não abriria por slug,
+    /// porque o segmento fixo tem prioridade sobre {idOrSlug}.
+    /// </summary>
+    private static readonly HashSet<string> ReservedSlugs = new() { "changes", "import", "categories" };
+
     private async Task<string> EnsureUniqueSlugAsync(Guid userId, string baseSlug, Guid? excludeId = null)
     {
         var slug = baseSlug;
         var counter = 1;
 
-        while (await _context.Decks.AnyAsync(d =>
+        while (ReservedSlugs.Contains(slug) || await _context.Decks.AnyAsync(d =>
                    d.UserId == userId && d.Slug == slug && (!excludeId.HasValue || d.Id != excludeId.Value)))
         {
             // O sufixo cabe nos 150 caracteres da coluna cortando o fim do slug

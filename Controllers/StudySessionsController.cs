@@ -1,4 +1,5 @@
 using cardvoz_api.Auth;
+using cardvoz_api.DTOs.Decks;
 using cardvoz_api.DTOs.StudySessions;
 using cardvoz_api.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -47,6 +48,40 @@ public class StudySessionsController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+    }
+
+    /// <summary>
+    /// Guarda uma sessão já concluída numa chamada (feita com ou sem internet): sessão,
+    /// respostas e acertos e erros das fichas. Respostas de fichas que não são do
+    /// baralho são ignoradas. Com "id" já salvo da mesma pessoa, responde 200 sem duplicar.
+    /// </summary>
+    [HttpPost("complete")]
+    [ProducesResponseType(typeof(StudySessionResponseDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(StudySessionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<StudySessionResponseDto>> Complete([FromBody] CompleteSessionDto dto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        if (dto.CompletedAt < dto.StartedAt)
+        {
+            ModelState.AddModelError(nameof(dto.CompletedAt), "O fim da sessão não pode ser antes do início.");
+            return BadRequest(ModelState);
+        }
+
+        var (outcome, session) = await _studyService.CompleteSessionAsync(User.GetUserId(), dto);
+        return outcome switch
+        {
+            CreateOutcome.Existing => Ok(session),
+            CreateOutcome.Conflict => Conflict(new { message = "Este identificador já está em uso." }),
+            CreateOutcome.NotFound => NotFound(new { message = $"Baralho com ID {dto.DeckId} não foi encontrado." }),
+            _ => CreatedAtAction(nameof(GetById), new { sessionId = session!.Id }, session)
+        };
     }
 
     /// <summary>

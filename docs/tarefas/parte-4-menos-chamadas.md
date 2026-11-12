@@ -1,5 +1,7 @@
 # Tarefa: rotas com menos chamadas (parte 4 do modo sem login)
 
+> **Situação (11/11/2026):** implementada na branch `feat/estatisticas-das-fichas`, junto com os acertos e erros das fichas ([`estatisticas-das-fichas.md`](estatisticas-das-fichas.md)). Testada com o site como na seção 6. Aguarda a revisão do dono da API.
+
 **Repositório:** cardvoz-api
 **Banco (`cardvoz-db`):** não muda. Nenhuma migration: as três rotas usam as tabelas que já existem.
 **Depende de:** nada. O site (`cardvoz`, modo sem login, já na `main`) chama estas rotas e, enquanto elas não existirem (resposta 404 ou 405), usa o caminho antigo. Pode ser publicada antes ou depois do site.
@@ -129,10 +131,10 @@ Para testar com o site: rode a API com as rotas novas e o site com `NEXT_PUBLIC_
 
 ## 7. Pronto quando
 
-- [ ] As três rotas (e a de lote, se fizer) com `[Authorize]` e só dados da pessoa logada.
-- [ ] Importação e sessão salvas em transação.
-- [ ] Importação e sessão com `id` repetido da mesma pessoa respondem 200 sem duplicar (seção 5).
-- [ ] Sessão ignora respostas de fichas de fora do baralho.
-- [ ] `GET /api/decks/changes` não é capturado por `{idOrSlug}`.
-- [ ] README da API atualizado na seção "Endpoints Principais".
-- [ ] Testado com o site como na seção 6.
+- [x] As três rotas (e a de lote, se fizer) com `[Authorize]` e só dados da pessoa logada.
+- [x] Importação e sessão salvas em transação.
+- [x] Importação e sessão com `id` repetido da mesma pessoa respondem 200 sem duplicar (seção 5).
+- [x] Sessão ignora respostas de fichas de fora do baralho.
+- [x] `GET /api/decks/changes` não é capturado por `{idOrSlug}`.
+- [x] README da API atualizado na seção "Endpoints Principais".
+- [x] Testado com o site como na seção 6.

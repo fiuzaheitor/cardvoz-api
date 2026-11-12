@@ -44,6 +44,13 @@ public class Deck
 
     public DateTime? UpdatedAt { get; set; }
 
+    /// <summary>
+    /// Última vez que um estudo do baralho chegou à conta (hora do servidor). Estudar
+    /// não muda o UpdatedAt, então o site compara este valor para saber que os acertos
+    /// e erros das fichas mudaram.
+    /// </summary>
+    public DateTime? LastStudiedAt { get; set; }
+
     [JsonIgnore]
     public User? User { get; set; }
 

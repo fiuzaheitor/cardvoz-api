@@ -121,8 +121,12 @@ Todos os IDs são UUID (texto, ex.: `"3f6c2b1e-…"`).
 ### Baralhos (`/api/decks`)
 - `GET /api/decks` - Lista os baralhos da pessoa logada (suporta `?category=` e `?search=`)
 - `GET /api/decks/categories` - Lista as categorias dos baralhos da pessoa logada
+- `GET /api/decks/changes?since=<data>` - Baralhos criados, alterados ou estudados depois de `since` (com as fichas), `allIds` (todos os baralhos atuais, para o site saber o que foi excluído) e `serverTime` (o `since` da próxima vez). Sem `since`, todos. Folga de 5 s no `since`
+- `POST /api/decks/import` - Cria o baralho com todas as fichas numa chamada, numa transação (até 1000 fichas; cada ficha pode trazer os acertos e erros que tinha no aparelho). Com `id` (UUID gerado no aparelho) já salvo da mesma pessoa, responde `200` com o que existe, sem duplicar; de outra pessoa, `409`
+- `POST /api/decks/{id}/cards/batch` - Acrescenta várias fichas no fim do baralho, numa transação (`{ "cards": [...] }`, até 1000)
 - `GET /api/decks/{idOrSlug}` - Obtém baralho detalhado por ID ou slug
 - `POST /api/decks` - Cria um novo baralho
+- Os slugs `changes`, `import` e `categories` são reservados (ganham `-1`), porque esses endereços fixos têm prioridade sobre `{idOrSlug}`
 - `PUT /api/decks/{id}` - Edita título, categoria, descrição ou slug (só os campos enviados)
 - `DELETE /api/decks/{id}` - Exclui o baralho com suas fichas e sessões
 
@@ -132,10 +136,12 @@ Todos os IDs são UUID (texto, ex.: `"3f6c2b1e-…"`).
 - `POST /api/cards` - Adiciona uma ficha a um baralho
 - `PUT /api/cards/{id}` - Atualiza uma ficha
 - `DELETE /api/cards/{id}` - Remove uma ficha
+- Cada ficha devolve `correctCount`, `incorrectCount`, `lastAnsweredAt` e `lastWasCorrect` (os dois últimos ficam de fora do JSON quando nulos: ficha nunca estudada). O baralho devolve `lastStudiedAt`, a hora em que o último estudo chegou à conta. `POST /api/cards` aceita os mesmos números, para levar o histórico de uma ficha estudada sem login
 
 ### Sessões de Estudo (`/api/study-sessions`)
+- `POST /api/study-sessions/complete` - Guarda uma sessão já concluída numa chamada (feita com ou sem internet): sessão, respostas e acertos e erros das fichas, numa transação. Respostas de fichas que não são do baralho são ignoradas; horários no futuro viram o horário do servidor; até 1000 respostas; `completedAt` antes de `startedAt` responde `400`. Com `id` repetido da mesma pessoa, `200` sem somar de novo; de outra pessoa, `409`
 - `POST /api/study-sessions/start` - Inicia sessão de estudo por `deckId` ou `deckSlug`
-- `POST /api/study-sessions/{id}/review` - Registra acerto/erro e flag `voiceUsed`
+- `POST /api/study-sessions/{id}/review` - Registra acerto/erro e flag `voiceUsed` (também soma na ficha)
 - `POST /api/study-sessions/{id}/finish` - Conclui a sessão e consolida pontuação
 - `GET /api/study-sessions/{id}` - Consulta detalhes de uma sessão
 - `GET /api/study-sessions/history` - Histórico de sessões da pessoa logada (`?deckId=`, `?limit=` até 100)
@@ -159,7 +165,7 @@ Só para contas com `IsAdmin` (as demais recebem `403`). A API confere no banco 
 
 ### Pedidos em andamento
 - **Idioma das fichas**: guardar o idioma das perguntas e das respostas no baralho ([`docs/tarefas/idioma-das-fichas.md`](docs/tarefas/idioma-das-fichas.md)). A migration já está na `main` do `cardvoz-db` e precisa estar aplicada no Supabase antes de publicar a API com os campos novos.
-- **Menos chamadas (parte 4 do modo sem login)**: rotas para importar um baralho inteiro, buscar só o que mudou e fechar uma sessão de estudo numa chamada ([`docs/tarefas/parte-4-menos-chamadas.md`](docs/tarefas/parte-4-menos-chamadas.md)). O site já usa essas rotas quando existem e volta ao caminho antigo quando respondem 404/405.
+- **Menos chamadas (parte 4 do modo sem login)** e **acertos e erros das fichas**: implementados juntos na branch `feat/estatisticas-das-fichas` ([`docs/tarefas/parte-4-menos-chamadas.md`](docs/tarefas/parte-4-menos-chamadas.md) e [`docs/tarefas/estatisticas-das-fichas.md`](docs/tarefas/estatisticas-das-fichas.md)). Precisam da migration `20261111000000_estatisticas_das_fichas.sql` do `cardvoz-db` aplicada antes de publicar.
 
 ---
 

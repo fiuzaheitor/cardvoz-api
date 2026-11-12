@@ -55,6 +55,66 @@ public class DecksController : ControllerBase
     }
 
     /// <summary>
+    /// Baralhos criados, alterados ou estudados depois de "since", com as fichas, os ids
+    /// de todos os baralhos atuais e a hora do servidor (o "since" da próxima vez).
+    /// Declarada antes de {idOrSlug}: o segmento fixo tem prioridade.
+    /// </summary>
+    [HttpGet("changes")]
+    [ProducesResponseType(typeof(DeckChangesDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<DeckChangesDto>> GetChanges([FromQuery] DateTime? since)
+    {
+        return Ok(await _deckService.GetChangesAsync(User.GetUserId(), since));
+    }
+
+    /// <summary>
+    /// Cria o baralho com todas as fichas numa chamada (tudo ou nada). Com "id" já
+    /// salvo da mesma pessoa, responde 200 com o que existe, sem duplicar.
+    /// </summary>
+    [HttpPost("import")]
+    [ProducesResponseType(typeof(DeckDetailResponseDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(DeckDetailResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<DeckDetailResponseDto>> Import([FromBody] ImportDeckDto dto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var (outcome, deck) = await _deckService.ImportAsync(User.GetUserId(), dto);
+        return outcome switch
+        {
+            CreateOutcome.Existing => Ok(deck),
+            CreateOutcome.Conflict => Conflict(new { message = "Este identificador já está em uso." }),
+            _ => CreatedAtAction(nameof(GetByIdOrSlug), new { idOrSlug = deck!.Id }, deck)
+        };
+    }
+
+    /// <summary>
+    /// Acrescenta várias fichas ao fim de um baralho que já existe, numa transação.
+    /// </summary>
+    [HttpPost("{deckId:guid}/cards/batch")]
+    [ProducesResponseType(typeof(DeckDetailResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<DeckDetailResponseDto>> AddCardsBatch(Guid deckId, [FromBody] BatchCardsDto dto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var deck = await _deckService.AddCardsBatchAsync(User.GetUserId(), deckId, dto);
+        if (deck == null)
+        {
+            return NotFound(new { message = $"Baralho com ID {deckId} não foi encontrado." });
+        }
+
+        return Ok(deck);
+    }
+
+    /// <summary>
     /// Obtém detalhes completos de um baralho e seus cartões pelo ID (UUID) ou slug.
     /// </summary>
     [HttpGet("{idOrSlug}")]

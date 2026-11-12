@@ -12,5 +12,8 @@ public class DeckDetailResponseDto
     public int CardCount { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+
+    /// <summary>Última vez que o baralho foi estudado (nulo = nunca).</summary>
+    public DateTime? LastStudiedAt { get; set; }
     public IEnumerable<CardResponseDto> Cards { get; set; } = new List<CardResponseDto>();
 }
