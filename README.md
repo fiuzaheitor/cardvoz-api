@@ -136,7 +136,7 @@ Todos os IDs são UUID (texto, ex.: `"3f6c2b1e-…"`).
 - `POST /api/cards` - Adiciona uma ficha a um baralho
 - `PUT /api/cards/{id}` - Atualiza uma ficha
 - `DELETE /api/cards/{id}` - Remove uma ficha
-- Cada ficha devolve `correctCount`, `incorrectCount`, `lastAnsweredAt` e `lastWasCorrect` (os dois últimos ficam de fora do JSON quando nulos: ficha nunca estudada). O baralho devolve `lastStudiedAt`, a hora em que o último estudo chegou à conta. `POST /api/cards` aceita os mesmos números, para levar o histórico de uma ficha estudada sem login
+- Cada ficha devolve `reviewLevel` e `nextReviewAt` (revisão espaçada, ver [`docs/tarefas/revisao-espacada.md`](docs/tarefas/revisao-espacada.md)), `correctCount`, `incorrectCount`, `lastAnsweredAt` e `lastWasCorrect` (os dois últimos ficam de fora do JSON quando nulos: ficha nunca estudada). O baralho devolve `lastStudiedAt`, a hora em que o último estudo chegou à conta. `POST /api/cards` aceita os mesmos números, para levar o histórico de uma ficha estudada sem login
 
 ### Sessões de Estudo (`/api/study-sessions`)
 - `POST /api/study-sessions/complete` - Guarda uma sessão já concluída numa chamada (feita com ou sem internet): sessão, respostas e acertos e erros das fichas, numa transação. Respostas de fichas que não são do baralho são ignoradas; horários no futuro viram o horário do servidor; até 1000 respostas; `completedAt` antes de `startedAt` responde `400`. Com `id` repetido da mesma pessoa, `200` sem somar de novo; de outra pessoa, `409`

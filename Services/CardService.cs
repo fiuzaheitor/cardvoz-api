@@ -39,7 +39,9 @@ public class CardService : ICardService
                 CorrectCount = c.CorrectCount,
                 IncorrectCount = c.IncorrectCount,
                 LastAnsweredAt = c.LastAnsweredAt,
-                LastWasCorrect = c.LastWasCorrect
+                LastWasCorrect = c.LastWasCorrect,
+                ReviewLevel = c.ReviewLevel,
+                NextReviewAt = c.NextReviewAt
             })
             .ToListAsync();
     }
@@ -64,7 +66,9 @@ public class CardService : ICardService
             CorrectCount = card.CorrectCount,
             IncorrectCount = card.IncorrectCount,
             LastAnsweredAt = card.LastAnsweredAt,
-            LastWasCorrect = card.LastWasCorrect
+            LastWasCorrect = card.LastWasCorrect,
+            ReviewLevel = card.ReviewLevel,
+            NextReviewAt = card.NextReviewAt
         };
     }
 
@@ -95,7 +99,7 @@ public class CardService : ICardService
             DisplayOrder = displayOrder,
             CreatedAt = DateTime.UtcNow
         };
-        card.SetHistory(dto.CorrectCount, dto.IncorrectCount, dto.LastAnsweredAt, dto.LastWasCorrect);
+        card.SetHistory(dto.CorrectCount, dto.IncorrectCount, dto.LastAnsweredAt, dto.LastWasCorrect, dto.ReviewLevel, dto.NextReviewAt);
 
         _context.Cards.Add(card);
         deck.UpdatedAt = DateTime.UtcNow;
@@ -116,7 +120,9 @@ public class CardService : ICardService
             CorrectCount = card.CorrectCount,
             IncorrectCount = card.IncorrectCount,
             LastAnsweredAt = card.LastAnsweredAt,
-            LastWasCorrect = card.LastWasCorrect
+            LastWasCorrect = card.LastWasCorrect,
+            ReviewLevel = card.ReviewLevel,
+            NextReviewAt = card.NextReviewAt
         };
     }
 
@@ -159,7 +165,9 @@ public class CardService : ICardService
             CorrectCount = card.CorrectCount,
             IncorrectCount = card.IncorrectCount,
             LastAnsweredAt = card.LastAnsweredAt,
-            LastWasCorrect = card.LastWasCorrect
+            LastWasCorrect = card.LastWasCorrect,
+            ReviewLevel = card.ReviewLevel,
+            NextReviewAt = card.NextReviewAt
         };
     }
 

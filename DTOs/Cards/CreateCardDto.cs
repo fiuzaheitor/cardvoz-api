@@ -32,4 +32,9 @@ public class CreateCardDto
     public DateTime? LastAnsweredAt { get; set; }
 
     public bool? LastWasCorrect { get; set; }
+
+    [Range(0, 6, ErrorMessage = "O nível de revisão precisa estar entre 0 e 6.")]
+    public int? ReviewLevel { get; set; }
+
+    public DateTime? NextReviewAt { get; set; }
 }
