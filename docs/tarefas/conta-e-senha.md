@@ -14,6 +14,13 @@
 
 **Configurar no Render:** `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` e `SITE_URL`. Exemplo com Gmail: `smtp.gmail.com`, uma conta da equipe e uma "senha de app" (Conta Google → Segurança → Senhas de app). Provedores como Brevo e Resend têm plano gratuito e entregam melhor.
 
+## Confirmação de e-mail (nov/2026)
+
+- Migration `20261113000000_confirmar_email.sql`: `Users.EmailConfirmedAt` e a tabela `EmailConfirmationTokens` (só o hash, uso único, 24 horas).
+- O cadastro com senha manda o link (`/confirmar-email/#codigo=...`); `POST /api/auth/confirm-email` confirma; `POST /api/auth/resend-confirmation` reenvia (Perfil do site).
+- Google e "Esqueci minha senha" confirmam o e-mail. Com o e-mail confirmado, entrar com o Google no mesmo endereço **liga o Google à conta com senha**, em vez do `409`.
+- O envio por SMTP fica em `EmailSender`, usado pelos dois fluxos.
+
 ## Baixar os dados e excluir a conta (LGPD)
 
 - `GET /api/account/export` → JSON com conta, baralhos, fichas (acertos, erros, revisão) e sessões. Sem hash de senha nem tokens.

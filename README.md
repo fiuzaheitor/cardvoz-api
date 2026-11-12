@@ -124,13 +124,20 @@ Todos os IDs são UUID (texto, ex.: `"3f6c2b1e-…"`).
 - `POST /api/auth/forgot-password` - `{ "email" }`. Se o e-mail tiver conta, manda um link com código de uso único, válido por 1 hora (só o hash fica no banco; um e-mail por minuto por conta). A resposta é sempre a mesma, para não revelar quais e-mails têm conta. Sem SMTP configurado, `503`. Serve também para quem entra só com o Google criar uma senha
 - `POST /api/auth/reset-password` - `{ "token", "password" }`. Troca a senha, zera o bloqueio por tentativas e encerra as sessões abertas (`204`). Código usado ou vencido: `400`
 
+### Confirmação de e-mail (`/api/auth`)
+- O cadastro com senha manda um link de confirmação (`SITE_URL/confirmar-email/#codigo=...`, uso único, 24 horas), se o SMTP estiver configurado. Confirmar **não é obrigatório** para usar o CardVoz.
+- `POST /api/auth/confirm-email` - `{ "token" }`. Confirma (`204`); código usado ou vencido: `400`
+- `POST /api/auth/resend-confirmation` - Com login. Manda o link de novo (`200`); já confirmado: `409`; menos de 1 minuto desde o último: `429`; sem SMTP: `503`
+- Contas criadas pelo Google e quem cria senha pelo link de "Esqueci minha senha" ficam confirmadas. O `user` devolvido no login traz `emailConfirmed`.
+- **Junção com o Google:** se a conta com senha tiver o e-mail confirmado, entrar com o Google no mesmo e-mail liga o Google a essa conta (a pessoa entra dos dois jeitos). Sem confirmar, a API responde `409` pedindo para confirmar o e-mail no Perfil.
+
 ### Conta (`/api/account`)
 Direitos da pessoa sobre os próprios dados (LGPD).
 - `GET /api/account/export` - Tudo o que a conta guarda em JSON: dados da conta, baralhos com fichas (acertos, erros, revisão) e histórico de estudo. Sem hash de senha nem tokens
 - `POST /api/account/delete` - Exclui a conta com baralhos, fichas, sessões e tokens. Pede `confirmEmail` (o e-mail da conta) e, em conta com senha, `password`. Única pessoa admin recebe `409`. Limite de 10 por minuto por IP
 
 ### Saúde (`/api/health`)
-- `GET /api/health` - Sem login. Lê o banco e responde `{ "status": "ok" }` (ou `503`). A Action **Manter ativo** (`.github/workflows/manter-ativo.yml`) chama esta rota a cada 3 dias para o Supabase gratuito não pausar o projeto por falta de uso. Para mudar o endereço, crie a variável `API_HEALTH_URL` no repositório que publica a API.
+- `GET /api/health` - Sem login. Lê o banco e responde `{ "status": "ok" }` (ou `503`). A Action **Manter ativo** (`.github/workflows/manter-ativo.yml`) chama esta rota a cada 10 minutos: a API não "adormece" no Render (sem a espera de até 1 minuto ao abrir o site) e o Supabase gratuito não pausa por falta de uso. Usa cerca de 730 das 750 horas gratuitas mensais da conta do Render. Para mudar o endereço, crie a variável `API_HEALTH_URL` no repositório que publica a API.
 
 ### Baralhos (`/api/decks`)
 - `GET /api/decks` - Lista os baralhos da pessoa logada (suporta `?category=` e `?search=`)
@@ -167,7 +174,7 @@ Baralho sem dono (`UserId` nulo), criado pelo painel de admin. Não aparece na l
 
 ### Painel de admin (`/api/admin`)
 Só para contas com `IsAdmin` (as demais recebem `403`). A API confere no banco a cada chamada, então tirar o admin vale na hora. O primeiro admin é definido pelo SQL Editor do Supabase (README do `cardvoz-db`); os seguintes, pelo painel. O `user` devolvido no login traz `isAdmin`.
-- `GET /api/admin/stats` - Números gerais (usuários, admins, baralhos, compartilhados, fichas, sessões)
+- `GET /api/admin/stats` - Números gerais (usuários, admins, baralhos, compartilhados, fichas, sessões) e de estudo: acertos e erros somados (`correctAnswers`, `incorrectAnswers`), fichas para revisar agora (`cardsDueNow`), pessoas que estudaram nos últimos 7 dias (`activeLast7Days`) e e-mails confirmados (`confirmedEmails`)
 - `GET /api/admin/users` - Contas, com forma de entrar (senha/Google) e número de baralhos
 - `PUT /api/admin/users/{id}/admin` - Dá ou tira o admin (`{ "isAdmin": true }`). Ninguém muda o próprio acesso (`400`)
 - `DELETE /api/admin/users/{id}` - Exclui a conta com baralhos, fichas e sessões. Ninguém exclui a própria conta (`400`)
@@ -180,6 +187,16 @@ Só para contas com `IsAdmin` (as demais recebem `403`). A API confere no banco 
 ### Pedidos em andamento
 - **Idioma das fichas**: baralhos devolvem e aceitam `questionLanguage` e `answerLanguage` (código como `en`, `es` ou `pt-BR`; nulo = português; no `PUT`, texto vazio volta para português). Também nos baralhos compartilhados e nas cópias ([`docs/tarefas/idioma-das-fichas.md`](docs/tarefas/idioma-das-fichas.md)).
 - **Menos chamadas (parte 4 do modo sem login)** e **acertos e erros das fichas**: implementados juntos na branch `feat/estatisticas-das-fichas` ([`docs/tarefas/parte-4-menos-chamadas.md`](docs/tarefas/parte-4-menos-chamadas.md) e [`docs/tarefas/estatisticas-das-fichas.md`](docs/tarefas/estatisticas-das-fichas.md)). Precisam da migration `20261111000000_estatisticas_das_fichas.sql` do `cardvoz-db` aplicada antes de publicar.
+
+---
+
+## 🧪 Testes
+
+```bash
+dotnet test tests/cardvoz-api.Tests
+```
+
+Testes em xUnit com SQLite em memória (`tests/cardvoz-api.Tests/`; relacional como o PostgreSQL, sem precisar de servidor): revisão espaçada (`Card.RecordAnswer`), importação sem duplicar, sessão completa, exclusão e exportação da conta, confirmação de e-mail, junção com o Google e as regras de Google e e-mail. Rodam no GitHub Actions em todo PR, e o deploy só acontece se passarem. O projeto da API ignora a pasta `tests/` (não vai para a imagem Docker).
 
 ---
 

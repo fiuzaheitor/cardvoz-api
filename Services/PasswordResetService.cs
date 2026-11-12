@@ -1,6 +1,3 @@
-using System.Net;
-using System.Net.Mail;
-using cardvoz_api.Auth;
 using cardvoz_api.Data;
 using cardvoz_api.Models;
 using Microsoft.AspNetCore.Identity;
@@ -22,14 +19,14 @@ public class PasswordResetService
     private readonly CardVozDbContext _context;
     private readonly ITokenService _tokenService;
     private readonly IPasswordHasher<User> _passwordHasher;
-    private readonly EmailSettings _email;
+    private readonly EmailSender _email;
     private readonly ILogger<PasswordResetService> _logger;
 
     public PasswordResetService(
         CardVozDbContext context,
         ITokenService tokenService,
         IPasswordHasher<User> passwordHasher,
-        EmailSettings email,
+        EmailSender email,
         ILogger<PasswordResetService> logger)
     {
         _context = context;
@@ -78,7 +75,7 @@ public class PasswordResetService
         var link = $"{_email.SiteUrl}/redefinir-senha/#codigo={token}";
         try
         {
-            await SendAsync(user.Email, "Criar uma nova senha no CardVoz",
+            await _email.SendAsync(user.Email, "Criar uma nova senha no CardVoz",
                 $"Olá, {user.Name}.\n\n" +
                 "Recebemos um pedido para criar uma nova senha na sua conta do CardVoz. " +
                 "Para continuar, abra o link abaixo. Ele vale por 1 hora e funciona uma vez só.\n\n" +
@@ -108,6 +105,8 @@ public class PasswordResetService
         user.FailedLoginCount = 0;
         user.LockoutEnd = null;
         user.UpdatedAt = now;
+        // O link chegou no e-mail: ele está confirmado
+        user.EmailConfirmedAt ??= now;
         reset.UsedAt = now;
 
         // Quem pegou a senha antiga perde o acesso
@@ -118,24 +117,5 @@ public class PasswordResetService
 
         _logger.LogInformation("Senha redefinida pelo link de e-mail: conta {UserId}", user.Id);
         return true;
-    }
-
-    private async Task SendAsync(string to, string subject, string body)
-    {
-        using var message = new MailMessage
-        {
-            From = new MailAddress(_email.From!),
-            Subject = subject,
-            Body = body,
-            IsBodyHtml = false
-        };
-        message.To.Add(to);
-
-        using var client = new SmtpClient(_email.Host, _email.Port)
-        {
-            EnableSsl = true,
-            Credentials = string.IsNullOrEmpty(_email.User) ? null : new NetworkCredential(_email.User, _email.Password)
-        };
-        await client.SendMailAsync(message);
     }
 }
