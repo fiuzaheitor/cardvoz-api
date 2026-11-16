@@ -40,7 +40,7 @@ public class CardService : ICardService
                 IncorrectCount = c.IncorrectCount,
                 LastAnsweredAt = c.LastAnsweredAt,
                 LastWasCorrect = c.LastWasCorrect,
-                ReviewLevel = c.ReviewLevel,
+                ReviewEase = c.ReviewEase,
                 NextReviewAt = c.NextReviewAt
             })
             .ToListAsync();
@@ -67,7 +67,7 @@ public class CardService : ICardService
             IncorrectCount = card.IncorrectCount,
             LastAnsweredAt = card.LastAnsweredAt,
             LastWasCorrect = card.LastWasCorrect,
-            ReviewLevel = card.ReviewLevel,
+            ReviewEase = card.ReviewEase,
             NextReviewAt = card.NextReviewAt
         };
     }
@@ -99,7 +99,7 @@ public class CardService : ICardService
             DisplayOrder = displayOrder,
             CreatedAt = DateTime.UtcNow
         };
-        card.SetHistory(dto.CorrectCount, dto.IncorrectCount, dto.LastAnsweredAt, dto.LastWasCorrect, dto.ReviewLevel, dto.NextReviewAt);
+        card.SetHistory(dto.CorrectCount, dto.IncorrectCount, dto.LastAnsweredAt, dto.LastWasCorrect, dto.ReviewEase, dto.NextReviewAt);
 
         _context.Cards.Add(card);
         deck.UpdatedAt = DateTime.UtcNow;
@@ -121,7 +121,7 @@ public class CardService : ICardService
             IncorrectCount = card.IncorrectCount,
             LastAnsweredAt = card.LastAnsweredAt,
             LastWasCorrect = card.LastWasCorrect,
-            ReviewLevel = card.ReviewLevel,
+            ReviewEase = card.ReviewEase,
             NextReviewAt = card.NextReviewAt
         };
     }
@@ -166,7 +166,7 @@ public class CardService : ICardService
             IncorrectCount = card.IncorrectCount,
             LastAnsweredAt = card.LastAnsweredAt,
             LastWasCorrect = card.LastWasCorrect,
-            ReviewLevel = card.ReviewLevel,
+            ReviewEase = card.ReviewEase,
             NextReviewAt = card.NextReviewAt
         };
     }

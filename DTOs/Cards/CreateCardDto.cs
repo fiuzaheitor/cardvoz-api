@@ -33,8 +33,12 @@ public class CreateCardDto
 
     public bool? LastWasCorrect { get; set; }
 
-    [Range(0, 6, ErrorMessage = "O nível de revisão precisa estar entre 0 e 6.")]
-    public int? ReviewLevel { get; set; }
+    // Revisão espaçada do aparelho: a facilidade da ficha (o site antigo, com a
+    // caixa de Leitner, não manda) e a data da próxima revisão. O intervalo sai
+    // das datas: dias entre a última resposta e a próxima revisão.
+
+    [Range(1300, 2500, ErrorMessage = "A facilidade da ficha precisa estar entre 1300 e 2500.")]
+    public int? ReviewEase { get; set; }
 
     public DateTime? NextReviewAt { get; set; }
 }

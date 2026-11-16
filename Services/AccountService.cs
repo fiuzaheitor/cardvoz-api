@@ -84,7 +84,7 @@ public class AccountService
                         incorrectCount = c.IncorrectCount,
                         lastAnsweredAt = c.LastAnsweredAt,
                         lastWasCorrect = c.LastWasCorrect,
-                        reviewLevel = c.ReviewLevel,
+                        reviewEase = c.ReviewEase,
                         nextReviewAt = c.NextReviewAt
                     }),
                     studySessions = d.StudySessions.OrderBy(s => s.StartedAt).Select(s => new

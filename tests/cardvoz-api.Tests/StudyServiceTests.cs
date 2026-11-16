@@ -41,7 +41,7 @@ public class StudyServiceTests
         Assert.Equal(CreateOutcome.Existing, repetida);
         Assert.Equal(CreateOutcome.Conflict, deOutra);
         Assert.Equal(1, deck.Cards.First().CorrectCount);
-        Assert.Equal(1, deck.Cards.First().ReviewLevel);
+        Assert.Equal(1, deck.Cards.First().ReviewIntervalDays);
         Assert.Equal(1, deck.Cards.Last().IncorrectCount);
         Assert.Equal(0, alheio.Cards.First().CorrectCount);
         Assert.NotNull(deck.LastStudiedAt);

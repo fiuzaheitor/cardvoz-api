@@ -241,7 +241,7 @@ public class DeckService : IDeckService
                 DisplayOrder = startOrder + i,
                 CreatedAt = now
             };
-            card.SetHistory(c.CorrectCount, c.IncorrectCount, c.LastAnsweredAt, c.LastWasCorrect, c.ReviewLevel, c.NextReviewAt);
+            card.SetHistory(c.CorrectCount, c.IncorrectCount, c.LastAnsweredAt, c.LastWasCorrect, c.ReviewEase, c.NextReviewAt);
             return card;
         }).ToList();
     }
@@ -517,7 +517,7 @@ public class DeckService : IDeckService
             IncorrectCount = c.IncorrectCount,
             LastAnsweredAt = c.LastAnsweredAt,
             LastWasCorrect = c.LastWasCorrect,
-            ReviewLevel = c.ReviewLevel,
+            ReviewEase = c.ReviewEase,
             NextReviewAt = c.NextReviewAt
         }).ToList()
     };

@@ -35,14 +35,15 @@ public class RevisaoPrePublicacaoTests
         // Relógio do aparelho adiantado em 1 dia
         var card = new Card();
         var amanha = DateTime.UtcNow.AddDays(1);
-        card.SetHistory(3, 1, amanha, true, 2, amanha.AddDays(3));
+        card.SetHistory(3, 1, amanha, true, null, amanha.AddDays(3));
 
         Assert.True(card.LastAnsweredAt <= DateTime.UtcNow);
-        Assert.True(card.NextReviewAt <= card.LastAnsweredAt + Card.ReviewIntervals[2]);
+        // A próxima revisão recua junto: o intervalo continua de 3 dias
+        Assert.Equal(3, card.ReviewIntervalDays);
 
         // Um estudo de agora volta a mexer na revisão
         card.RecordAnswer(false, DateTime.UtcNow);
-        Assert.Equal(0, card.ReviewLevel);
+        Assert.Equal(0, card.ReviewIntervalDays);
         Assert.False(card.LastWasCorrect);
     }
 

@@ -22,8 +22,11 @@ public class CardResponseDto
     /// <summary>Resultado da última resposta (nulo = nunca estudada).</summary>
     public bool? LastWasCorrect { get; set; }
 
-    /// <summary>Revisão espaçada: nível de 0 a 6.</summary>
-    public int ReviewLevel { get; set; }
+    /// <summary>
+    /// Revisão espaçada: facilidade em milésimos (2500 = 2,5). O intervalo da ficha
+    /// são os dias entre LastAnsweredAt e NextReviewAt.
+    /// </summary>
+    public int ReviewEase { get; set; }
 
     /// <summary>Quando a ficha volta para "Revisar agora" (nulo = nunca estudada).</summary>
     public DateTime? NextReviewAt { get; set; }
